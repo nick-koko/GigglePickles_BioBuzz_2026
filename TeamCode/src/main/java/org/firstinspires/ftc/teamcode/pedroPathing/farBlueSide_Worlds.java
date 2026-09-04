@@ -14,7 +14,6 @@ import dev.nextftc.core.commands.Command;
 import dev.nextftc.core.commands.delays.Delay;
 import dev.nextftc.core.commands.groups.SequentialGroup;
 import dev.nextftc.core.components.SubsystemComponent;
-import dev.nextftc.extensions.fateweaver.FateComponent;
 import dev.nextftc.extensions.pedro.PedroComponent;
 
 @Configurable
@@ -23,8 +22,7 @@ public class farBlueSide_Worlds extends farAutonPaths_Worlds {
     public farBlueSide_Worlds() {
         addComponents(
                 new PedroComponent(Constants::createFollower),
-                new SubsystemComponent(ShooterSubsystem.INSTANCE, IntakeWithSensorsSubsystem.INSTANCE, TurretSubsystem.INSTANCE),
-                FateComponent.INSTANCE
+                new SubsystemComponent(ShooterSubsystem.INSTANCE, IntakeWithSensorsSubsystem.INSTANCE, TurretSubsystem.INSTANCE)
         );
     }
     public double intAmount = 18;

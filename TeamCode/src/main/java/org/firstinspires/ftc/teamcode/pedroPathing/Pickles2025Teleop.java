@@ -58,7 +58,6 @@ public class    Pickles2025Teleop extends NextFTCOpMode {
                         TurretSubsystem.INSTANCE
                 ),
                 BulkReadComponent.INSTANCE
-                //FateComponent.INSTANCE
         );
     }
 
