@@ -82,3 +82,10 @@ lint/tmp/
 # lint/reports/
 /Data/
 /FieldAssets/
+
+# Python and script-generated temporary files
+__pycache__/
+*.pyc
+scripts/.tmp/
+scripts/tmp/
+scripts/temp/
