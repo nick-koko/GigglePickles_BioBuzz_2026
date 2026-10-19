@@ -29,8 +29,8 @@ import dev.nextftc.ftc.components.BulkReadComponent;
  * clearly marked placeholder sections with output from the path visualizer.</p>
  */
 @Configurable
-@Autonomous(name = "Red Side Front Of Hive", group = "Comp")
-public class RedSideFrontOfHive extends NextFTCOpMode {
+@Autonomous(name = "leav and park", group = "Comp")
+public class leavandpark extends NextFTCOpMode {
 
     public static double SHOOTER_MOTOR_RPM = 4700.0;
     public static double SHOOTER_SPINUP_SECONDS = 2.0;
@@ -62,7 +62,7 @@ public class RedSideFrontOfHive extends NextFTCOpMode {
 
     private boolean autonStarted;
 
-    public RedSideFrontOfHive() {
+    public leavandpark() {
         addComponents(
                 new PedroComponent(Constants::createFollower),
                 new SubsystemComponent(

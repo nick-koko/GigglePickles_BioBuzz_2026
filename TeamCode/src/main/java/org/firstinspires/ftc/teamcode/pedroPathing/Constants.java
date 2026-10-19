@@ -42,10 +42,10 @@ public class Constants {
             .leftRearMotorName("back_left")
             .rightFrontMotorName("front_right")
             .rightRearMotorName("back_right")
-            .leftFrontMotorDirection(DcMotorSimple.Direction.REVERSE)
-            .leftRearMotorDirection(DcMotorSimple.Direction.REVERSE)
-            .rightFrontMotorDirection(DcMotorSimple.Direction.FORWARD)
-            .rightRearMotorDirection(DcMotorSimple.Direction.FORWARD)
+            .leftFrontMotorDirection(DcMotorSimple.Direction.FORWARD)
+            .leftRearMotorDirection(DcMotorSimple.Direction.FORWARD)
+            .rightFrontMotorDirection(DcMotorSimple.Direction.REVERSE)
+            .rightRearMotorDirection(DcMotorSimple.Direction.REVERSE)
             .xVelocity(78) //TODONE: Recheck with new battery 😎👌👌
             .yVelocity(62.5) //TODONE: Recheck with new battery 😎👌👌
             .useBrakeModeInTeleOp(true);

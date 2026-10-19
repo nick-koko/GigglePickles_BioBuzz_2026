@@ -3,6 +3,7 @@ package org.firstinspires.ftc.teamcode.pedroPathing;
 import com.bylazar.configurables.annotations.Configurable;
 import com.pedropathing.geometry.Pose;
 import com.qualcomm.robotcore.eventloop.opmode.Autonomous;
+import com.qualcomm.robotcore.eventloop.opmode.Disabled;
 
 import org.firstinspires.ftc.teamcode.GlobalRobotData;
 import org.firstinspires.ftc.teamcode.subsystems.IntakeWithSensorsSubsystem;
@@ -32,6 +33,7 @@ import dev.nextftc.extensions.pedro.PedroComponent;
     - (total possible perfect savings of 8.25s for a total of 10.25 ) Need minimum 7s
 
  */
+@Disabled
 @Configurable
 @Autonomous(name = "WorldsTopTriangle_closeRedSide", group = "Comp")
 public class closeRedSide_WorldsTopTriangle extends closeAutonPaths_WorldsTopTriangle{
