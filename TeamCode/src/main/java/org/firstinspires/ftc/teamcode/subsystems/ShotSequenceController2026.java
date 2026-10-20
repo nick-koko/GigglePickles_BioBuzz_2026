@@ -71,6 +71,30 @@ public final class ShotSequenceController2026 {
             startSequence();
         }
 
+        updateActiveSequence(shootRequested);
+    }
+
+    /**
+     * Starts one sequence without a gamepad edge. Intended for autonomous.
+     */
+    public void start() {
+        startedThisUpdate = false;
+        completedThisUpdate = false;
+        if (!active) {
+            startSequence();
+        }
+    }
+
+    /**
+     * Advances an autonomous-started sequence without gamepad input.
+     */
+    public void update() {
+        startedThisUpdate = false;
+        completedThisUpdate = false;
+        updateActiveSequence(false);
+    }
+
+    private void updateActiveSequence(boolean shootRequestStillHeld) {
         if (!active) {
             stopSequenceOutputs();
             return;
@@ -81,7 +105,7 @@ public final class ShotSequenceController2026 {
             elapsedSeconds = activeFeedSeconds;
             active = false;
             completedThisUpdate = true;
-            requireTriggerRelease = shootRequested;
+            requireTriggerRelease = shootRequestStillHeld;
             stopSequenceOutputs();
             return;
         }

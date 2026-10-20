@@ -9,11 +9,14 @@ import com.pedropathing.paths.PathChain;
 import com.qualcomm.robotcore.eventloop.opmode.Autonomous;
 
 import org.firstinspires.ftc.teamcode.GlobalRobotData;
+import org.firstinspires.ftc.teamcode.subsystems.FlowerIntakeSubsystem2026;
 import org.firstinspires.ftc.teamcode.subsystems.IntakeWithSensorsSubsystem2026;
+import org.firstinspires.ftc.teamcode.subsystems.ShotSequenceController2026;
 import org.firstinspires.ftc.teamcode.subsystems.ShooterSubsystem2026;
 
 import dev.nextftc.core.commands.Command;
 import dev.nextftc.core.commands.delays.Delay;
+import dev.nextftc.core.commands.delays.WaitUntil;
 import dev.nextftc.core.commands.groups.SequentialGroup;
 import dev.nextftc.core.commands.utility.InstantCommand;
 import dev.nextftc.core.components.SubsystemComponent;
@@ -32,7 +35,7 @@ import dev.nextftc.ftc.components.BulkReadComponent;
 @Autonomous(name = "Red Side Front Of Hive", group = "Comp")
 public class RedSideFrontOfHive extends NextFTCOpMode {
 
-    public static double SHOOTER_MOTOR_RPM = 3500.0;
+    public static double SHOOTER_FLYWHEEL_RPM = 3500.0;
     public static double SHOOTER_SPINUP_SECONDS = 2.0;
 
     // -------------------------------------------------------------------------
@@ -61,13 +64,16 @@ public class RedSideFrontOfHive extends NextFTCOpMode {
     private PathChain pastedPath;
 
     private boolean autonStarted;
+    private final ShotSequenceController2026 shotSequence =
+            new ShotSequenceController2026();
 
     public RedSideFrontOfHive() {
         addComponents(
                 new PedroComponent(Constants::createFollower),
                 new SubsystemComponent(
                         ShooterSubsystem2026.INSTANCE,
-                        IntakeWithSensorsSubsystem2026.INSTANCE
+                        IntakeWithSensorsSubsystem2026.INSTANCE,
+                        FlowerIntakeSubsystem2026.INSTANCE
                 ),
                 BulkReadComponent.INSTANCE
         );
@@ -85,6 +91,8 @@ public class RedSideFrontOfHive extends NextFTCOpMode {
 
         ShooterSubsystem2026.INSTANCE.stop();
         IntakeWithSensorsSubsystem2026.INSTANCE.stopAll();
+        FlowerIntakeSubsystem2026.INSTANCE.moveUp();
+        shotSequence.reset();
 
         PedroComponent.follower().setStartingPose(start);
         buildPaths();
@@ -175,11 +183,7 @@ public class RedSideFrontOfHive extends NextFTCOpMode {
         // For one generated PathChain, the default return is sufficient.
         // For multiple paths, return a SequentialGroup of FollowPath commands.
         // ---------------------------------------------------------------------
-        if (pastedPath == null) {
-            // Safe placeholder: spin up and wait, but do not move.
-            return new InstantCommand(() -> {
-            });
-        }
+
         return new FollowPath(pastedPath);
         // END PATH-FOLLOWING SEQUENCE SECTION
     }
@@ -188,16 +192,13 @@ public class RedSideFrontOfHive extends NextFTCOpMode {
     private Command autonomousSequence() {
         return new SequentialGroup(
                 new InstantCommand(() ->
-                        ShooterSubsystem2026.INSTANCE.spinUp(SHOOTER_MOTOR_RPM)
+                        ShooterSubsystem2026.INSTANCE.spinUp(
+                                SHOOTER_FLYWHEEL_RPM
+                        )
                 ),
                 new Delay(Math.max(0.0, SHOOTER_SPINUP_SECONDS)),
-                new InstantCommand(() ->
-                            IntakeWithSensorsSubsystem2026.INSTANCE.setFeedingToShooter(true)
-                ),
-                new Delay(Math.max(0.0, SHOOTER_SPINUP_SECONDS)),
-                new InstantCommand(() ->
-                        IntakeWithSensorsSubsystem2026.INSTANCE.setFeedingToShooter(false)
-                ),
+                new InstantCommand(shotSequence::start),
+                new WaitUntil(() -> !shotSequence.isActive()),
                 pathFollowingCommand()
         );
     }
@@ -211,8 +212,16 @@ public class RedSideFrontOfHive extends NextFTCOpMode {
         telemetry.addLine("----------------------------------------------");
         telemetry.addLine("Favorite fruit: Raspberries!!! (Red)");
         telemetry.addData("Path loaded", pastedPath != null ? "YES" : "NO - WILL NOT MOVE");
-        telemetry.addData("Shooter motor target", "%.0f RPM", SHOOTER_MOTOR_RPM);
+        telemetry.addData(
+                "Shooter flywheel target",
+                "%.0f RPM",
+                SHOOTER_FLYWHEEL_RPM
+        );
         telemetry.addData("Spin-up delay", "%.2f sec", SHOOTER_SPINUP_SECONDS);
+        telemetry.addData(
+                "Flower intake",
+                FlowerIntakeSubsystem2026.INSTANCE.getPosition()
+        );
         telemetry.addData(
                 "Starting pose",
                 "(%.2f, %.2f, %.1f deg)",
@@ -231,6 +240,9 @@ public class RedSideFrontOfHive extends NextFTCOpMode {
 
     @Override
     public void onUpdate() {
+        // The shared controller owns feed timing and the timed shooter boost.
+        shotSequence.update();
+
         Pose pose = PedroComponent.follower().getPose();
 
         telemetry.addData("Path loaded", pastedPath != null);
@@ -238,6 +250,18 @@ public class RedSideFrontOfHive extends NextFTCOpMode {
         telemetry.addData("X", "%.2f in", pose.getX());
         telemetry.addData("Y", "%.2f in", pose.getY());
         telemetry.addData("Heading", "%.1f deg", Math.toDegrees(pose.getHeading()));
+        telemetry.addData("Shot sequence active", shotSequence.isActive());
+        telemetry.addData(
+                "Shot sequence time",
+                "%.2f / %.2f sec",
+                shotSequence.getElapsedSeconds(),
+                shotSequence.getActiveFeedSeconds()
+        );
+        telemetry.addData("Shot boost active", shotSequence.isBoostActive());
+        telemetry.addData(
+                "Flower intake",
+                FlowerIntakeSubsystem2026.INSTANCE.getPosition()
+        );
         telemetry.addData(
                 "Shooter motor RPM",
                 "target %.0f / measured %.0f",
@@ -255,6 +279,7 @@ public class RedSideFrontOfHive extends NextFTCOpMode {
 
     @Override
     public void onStop() {
+        shotSequence.cancel();
         ShooterSubsystem2026.INSTANCE.stop();
         IntakeWithSensorsSubsystem2026.INSTANCE.stopAll();
 

@@ -7,8 +7,7 @@
             <goBILDA5202SeriesMotor name="shooter_motor1" port="2" />
             <goBILDA5202SeriesMotor name="shooter_motor2" port="3" />
             <Servo name="rgb_color_PWM1" port="0" />
-            <Servo name="shooter_hood" port="2" />
-            <Servo name="shooter_gate" port="4" />
+            <Servo name="flower_intake" port="3" />
             <AnalogInput name="analog_turret_encoder" port="0" />
             <DigitalDevice name="breakbeam1" port="2" />
         </LynxModule>

@@ -6,6 +6,7 @@ import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 import com.qualcomm.robotcore.util.Range;
 
 import org.firstinspires.ftc.teamcode.GlobalRobotData;
+import org.firstinspires.ftc.teamcode.subsystems.FlowerIntakeSubsystem2026;
 import org.firstinspires.ftc.teamcode.subsystems.IntakeWithSensorsSubsystem2026;
 import org.firstinspires.ftc.teamcode.subsystems.ShotSequenceController2026;
 import org.firstinspires.ftc.teamcode.subsystems.ShooterSubsystem2026;
@@ -32,20 +33,20 @@ public class Pickles2026Teleop extends NextFTCOpMode {
 
     public static double DRIVE_POWER = 1.0;
     public static double TURN_POWER = 0.5;
-    public static double SHOOTER_TARGET_RPM = 3600.0;
+    public static double SHOOTER_TARGET_RPM = 3500.0;
     public static double SHOOTER_RPM_STEP = 25.0;
 
     // Temporary fixed target until distance-based shot calculation is restored.
-    public static double SHOOT_TARGET_X_INCHES = 144.0;
-    public static double SHOOT_TARGET_Y_INCHES = 136.0;
-    public static double SHOOT_TARGET_Y_SPLIT_INCHES = 106.0;
-    public static double SHOOT_TARGET_Y_OFFSET_BELOW_SPLIT = 3.0;
-    public static double SHOOT_TARGET_Y_OFFSET_ABOVE_SPLIT = -1.0;
+    public static double SHOOT_TARGET_X = 58.0;
+    public static double SHOOT_TARGET_Y  = 60.0;
+    public static double SHOOT_TARGET_Y_SPLIT = 72.0;
+    public static double SHOOT_TARGET_Y_ABOVE_SPLIT = 84.0;
+    public static double SHOOT_TARGET_X_ABOVE_SPLIT = 58.0;
     public static boolean AUTO_AIM_STARTS_SHOOTER = true;
 
     public static double AIM_TURN_KP_PER_DEGREE = 0.0165;
     public static double CARDINAL_TURN_KP_PER_DEGREE = 0.009;
-    public static double AUTO_TURN_MIN_POWER = 0.075;
+    public static double AUTO_TURN_MIN_POWER = 0.052;
     public static double AUTO_TURN_MAX_POWER = 0.80;
     public static double AUTO_TURN_TOLERANCE_DEGREES = 1.0;
     public static boolean ENABLE_DPAD_TURNING = false;
@@ -67,7 +68,8 @@ public class Pickles2026Teleop extends NextFTCOpMode {
                 new PedroComponent(Constants::createFollower),
                 new SubsystemComponent(
                         ShooterSubsystem2026.INSTANCE,
-                        IntakeWithSensorsSubsystem2026.INSTANCE
+                        IntakeWithSensorsSubsystem2026.INSTANCE,
+                        FlowerIntakeSubsystem2026.INSTANCE
                 ),
                 BulkReadComponent.INSTANCE
         );
@@ -137,6 +139,7 @@ public class Pickles2026Teleop extends NextFTCOpMode {
         telemetry.addLine("GP2 D-pad up/down: adjust shooter RPM");
         telemetry.addLine("GP1/GP2: A intake/re-arm, hold B reverse, X stop");
         telemetry.addLine("GP1/GP2: RB shooter toggle, press RT for timed feed");
+        telemetry.addLine("GP2: LB toggles flower intake up/down");
         telemetry.addData("Starting pose source", startedFromAuton ? "AUTON" : "DEFAULT");
         telemetry.addData(
                 "Starting pose",
@@ -154,6 +157,7 @@ public class Pickles2026Teleop extends NextFTCOpMode {
     public void onStartButtonPressed() {
         PedroComponent.follower().setStartingPose(startingPose);
         PedroComponent.follower().startTeleopDrive();
+        FlowerIntakeSubsystem2026.INSTANCE.moveUp();
         shotSequence.reset();
     }
 
@@ -161,6 +165,7 @@ public class Pickles2026Teleop extends NextFTCOpMode {
     public void onUpdate() {
         IntakeWithSensorsSubsystem2026 intake = IntakeWithSensorsSubsystem2026.INSTANCE;
         ShooterSubsystem2026 shooter = ShooterSubsystem2026.INSTANCE;
+        FlowerIntakeSubsystem2026 flower = FlowerIntakeSubsystem2026.INSTANCE;
 
         if (gamepad2.dpadUpWasPressed()) {
             SHOOTER_TARGET_RPM += Math.abs(SHOOTER_RPM_STEP);
@@ -171,17 +176,22 @@ public class Pickles2026Teleop extends NextFTCOpMode {
                     SHOOTER_TARGET_RPM - Math.abs(SHOOTER_RPM_STEP)
             );
         }
+        if (gamepad2.leftBumperWasPressed()) {
+            flower.toggle();
+        }
 
         double drive = -gamepad1.left_stick_y * DRIVE_POWER;
         double strafe = -gamepad1.left_stick_x * DRIVE_POWER;
         double turn = -gamepad1.right_stick_x * TURN_POWER;
 
         Pose pose = PedroComponent.follower().getPose();
-        double targetY = SHOOT_TARGET_Y_INCHES
-                + (pose.getY() > SHOOT_TARGET_Y_SPLIT_INCHES
-                ? SHOOT_TARGET_Y_OFFSET_ABOVE_SPLIT
-                : SHOOT_TARGET_Y_OFFSET_BELOW_SPLIT);
-        double targetDx = SHOOT_TARGET_X_INCHES - pose.getX();
+        double targetY = SHOOT_TARGET_Y;
+        double targetX = SHOOT_TARGET_X;
+        if ((pose.getY() > SHOOT_TARGET_Y_SPLIT)) {
+            targetY = SHOOT_TARGET_Y_ABOVE_SPLIT;
+            targetX = SHOOT_TARGET_X_ABOVE_SPLIT;
+        }
+        double targetDx = targetX - pose.getX();
         double targetDy = targetY - pose.getY();
         double targetDistanceInches = Math.hypot(targetDx, targetDy);
         double targetHeadingRadians = Math.atan2(targetDy, targetDx);
@@ -243,7 +253,7 @@ public class Pickles2026Teleop extends NextFTCOpMode {
                 false // Field centric
         );
 
-        if (gamepad1.aWasPressed() || gamepad2.aWasPressed()) {
+        if (gamepad1.aWasPressed() || gamepad2.aWasPressed() || (flower.getPosition() == FlowerIntakeSubsystem2026.Position.DOWN)) {
             intake.intakeForward();
         }
         boolean stopFeedWasPressed =
@@ -288,12 +298,18 @@ public class Pickles2026Teleop extends NextFTCOpMode {
         telemetry.addData(
                 "Shooting target",
                 "(%.1f, %.1f), distance %.1f in",
-                SHOOT_TARGET_X_INCHES,
+                targetX,
                 targetY,
                 targetDistanceInches
         );
         telemetry.addData("Alliance", GlobalRobotData.allianceSide);
         telemetry.addData("Pose source", startedFromAuton ? "AUTON" : "DEFAULT");
+        telemetry.addData("Flower intake", flower.getPosition());
+        telemetry.addData(
+                "Flower servo position",
+                "%.3f",
+                flower.getServoPosition()
+        );
         telemetry.addData("Top beam", intake.isTopBeamBroken() ? "BROKEN" : "CLEAR");
         telemetry.addData(
                 "Break beam control",
