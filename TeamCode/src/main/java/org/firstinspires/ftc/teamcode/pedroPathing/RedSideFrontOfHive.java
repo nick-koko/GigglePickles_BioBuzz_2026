@@ -11,6 +11,7 @@ import com.qualcomm.robotcore.eventloop.opmode.Autonomous;
 import org.firstinspires.ftc.teamcode.GlobalRobotData;
 import org.firstinspires.ftc.teamcode.subsystems.FlowerIntakeSubsystem2026;
 import org.firstinspires.ftc.teamcode.subsystems.IntakeWithSensorsSubsystem2026;
+import org.firstinspires.ftc.teamcode.subsystems.LEDControlSubsystem2026;
 import org.firstinspires.ftc.teamcode.subsystems.ShotSequenceController2026;
 import org.firstinspires.ftc.teamcode.subsystems.ShooterSubsystem2026;
 
@@ -35,7 +36,7 @@ import dev.nextftc.ftc.components.BulkReadComponent;
 @Autonomous(name = "Red Side Front Of Hive", group = "Comp")
 public class RedSideFrontOfHive extends NextFTCOpMode {
 
-    public static double SHOOTER_FLYWHEEL_RPM = 3500.0;
+    public static double SHOOTER_FLYWHEEL_RPM = 3200.0;
     public static double SHOOTER_SPINUP_SECONDS = 2.0;
 
     // -------------------------------------------------------------------------
@@ -45,9 +46,9 @@ public class RedSideFrontOfHive extends NextFTCOpMode {
     //TODO TODO TODO
     private final PoseFactory poseFactory = PoseFactory.degrees();
 
-    private final Pose start = poseFactory.of(60.4247, 7.8072, 90);
+    private final Pose start = poseFactory.of(54.16, 7.8072, 90);
     private final Pose refrence = poseFactory.of(60.1567, 10.0208, 90);
-    private final Pose path = poseFactory.of(12.6848, 106.1132, 90);
+    private final Pose path = poseFactory.of(12.6848, 95.0, 90);
     private final Pose pathControl1 = poseFactory.of(18.2166, 18.4229, 0);
 
     public Path refrence() {
@@ -73,6 +74,7 @@ public class RedSideFrontOfHive extends NextFTCOpMode {
                 new SubsystemComponent(
                         ShooterSubsystem2026.INSTANCE,
                         IntakeWithSensorsSubsystem2026.INSTANCE,
+                        LEDControlSubsystem2026.INSTANCE,
                         FlowerIntakeSubsystem2026.INSTANCE
                 ),
                 BulkReadComponent.INSTANCE
@@ -279,6 +281,8 @@ public class RedSideFrontOfHive extends NextFTCOpMode {
 
     @Override
     public void onStop() {
+        int finalBallCount =
+                IntakeWithSensorsSubsystem2026.INSTANCE.getBallCount();
         shotSequence.cancel();
         ShooterSubsystem2026.INSTANCE.stop();
         IntakeWithSensorsSubsystem2026.INSTANCE.stopAll();
@@ -287,7 +291,7 @@ public class RedSideFrontOfHive extends NextFTCOpMode {
             Pose finalPose = PedroComponent.follower().getPose();
             GlobalRobotData.allianceSide = GlobalRobotData.COLOR.RED;
             GlobalRobotData.endAutonPose = finalPose.copy();
-            GlobalRobotData.endAutonBallCount = -1;
+            GlobalRobotData.endAutonBallCount = finalBallCount;
             GlobalRobotData.endAutonTurretAngleDegrees = Double.NaN;
             GlobalRobotData.endAutonTurretServoCommandAngleDegrees = Double.NaN;
             GlobalRobotData.endAutonTurretServoOffsetDegrees = Double.NaN;

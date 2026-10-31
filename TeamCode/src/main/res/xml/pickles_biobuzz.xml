@@ -9,7 +9,6 @@
             <Servo name="rgb_color_PWM1" port="0" />
             <Servo name="flower_intake" port="3" />
             <AnalogInput name="analog_turret_encoder" port="0" />
-            <DigitalDevice name="breakbeam1" port="2" />
         </LynxModule>
         <LynxModule name="Control Hub" port="173">
             <goBILDA5202SeriesMotor name="front_right" port="0" />
@@ -21,8 +20,10 @@
             <ServoFullRange name="Rurret" port="1" />
             <ServoFullRange name="Lurret" port="2" />
             <ControlHubImuBHI260AP name="imu" port="0" bus="0" />
-            <DigitalDevice name="breakbeam0" port="0" />
-            <DigitalDevice name="breakbeam2" port="4" />
+            <DigitalDevice name="ball_at_shooter" port="0" />
+            <DigitalDevice name="ball_in_middle_high" port="2" />
+            <DigitalDevice name="ball_in_middle_low" port="4" />
+            <DigitalDevice name="ball_at_intake_entry" port="6" />
             <goBILDAPinpoint name="pinpoint" port="0" bus="2" />
         </LynxModule>
     </LynxUsbDevice>

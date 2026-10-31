@@ -7,6 +7,7 @@ import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 import com.qualcomm.robotcore.util.Range;
 
 import org.firstinspires.ftc.teamcode.subsystems.IntakeWithSensorsSubsystem2026;
+import org.firstinspires.ftc.teamcode.subsystems.LEDControlSubsystem2026;
 import org.firstinspires.ftc.teamcode.subsystems.ShotSequenceController2026;
 import org.firstinspires.ftc.teamcode.subsystems.ShooterSubsystem2026;
 
@@ -78,7 +79,8 @@ public class ShooterTuning2026 extends NextFTCOpMode {
         addComponents(
                 new SubsystemComponent(
                         ShooterSubsystem2026.INSTANCE,
-                        IntakeWithSensorsSubsystem2026.INSTANCE
+                        IntakeWithSensorsSubsystem2026.INSTANCE,
+                        LEDControlSubsystem2026.INSTANCE
                 ),
                 BulkReadComponent.INSTANCE
         );
@@ -391,10 +393,26 @@ public class ShooterTuning2026 extends NextFTCOpMode {
         panelsTelemetry.addData("Feed maximum RPM drop", feedMaximumDropRpm);
         panelsTelemetry.addData("Intake mode", intake.getIntakeMode());
         panelsTelemetry.addData("Jam reverse", intake.isJamReversing());
-        panelsTelemetry.addData("Top beam broken", intake.isTopBeamBroken());
+        panelsTelemetry.addData("Tracked ball count", intake.getBallCount());
         panelsTelemetry.addData(
-                "Transfer stopped by beam",
-                intake.isTransferBlockedByBeam()
+                "Shooter-position beam broken",
+                intake.isBallAtShooterBeamBroken()
+        );
+        panelsTelemetry.addData(
+                "Middle-high beam broken",
+                intake.isMiddleHighBeamBroken()
+        );
+        panelsTelemetry.addData(
+                "Middle-low beam broken",
+                intake.isMiddleLowBeamBroken()
+        );
+        panelsTelemetry.addData(
+                "Intake-entry beam broken",
+                intake.isIntakeEntryBeamBroken()
+        );
+        panelsTelemetry.addData(
+                "Transfer stopped for capacity",
+                intake.isTransferStoppedForCapacity()
         );
         panelsTelemetry.addData("Intake applied power",
                 intake.getAppliedIntakePower());

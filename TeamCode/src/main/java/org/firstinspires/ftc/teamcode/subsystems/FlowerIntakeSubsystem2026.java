@@ -20,8 +20,8 @@ public class FlowerIntakeSubsystem2026 implements Subsystem {
     public static final FlowerIntakeSubsystem2026 INSTANCE =
             new FlowerIntakeSubsystem2026();
 
-    public static double DOWN_POSITION = 0.33;
-    public static double UP_POSITION = 0.75;
+    public static double DOWN_POSITION = 0.67;
+    public static double UP_POSITION = 1.0;
 
     public enum Position {
         UNKNOWN,

@@ -48,6 +48,7 @@ import dev.nextftc.ftc.components.BulkReadComponent;
 
 
 @Configurable
+@Disabled
 @TeleOp(name = "Pickles 2025 Teleop", group = "Comp")
 public class    Pickles2025Teleop extends NextFTCOpMode {
     public Pickles2025Teleop() {

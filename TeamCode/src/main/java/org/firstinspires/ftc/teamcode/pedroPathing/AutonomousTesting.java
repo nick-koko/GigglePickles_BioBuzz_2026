@@ -10,6 +10,7 @@ import com.qualcomm.robotcore.eventloop.opmode.Autonomous;
 
 import org.firstinspires.ftc.teamcode.GlobalRobotData;
 import org.firstinspires.ftc.teamcode.subsystems.IntakeWithSensorsSubsystem2026;
+import org.firstinspires.ftc.teamcode.subsystems.LEDControlSubsystem2026;
 import org.firstinspires.ftc.teamcode.subsystems.ShooterSubsystem2026;
 
 import dev.nextftc.core.commands.Command;
@@ -81,7 +82,8 @@ public class AutonomousTesting extends NextFTCOpMode {
                 new PedroComponent(Constants::createFollower),
                 new SubsystemComponent(
                         ShooterSubsystem2026.INSTANCE,
-                        IntakeWithSensorsSubsystem2026.INSTANCE
+                        IntakeWithSensorsSubsystem2026.INSTANCE,
+                        LEDControlSubsystem2026.INSTANCE
                 ),
                 BulkReadComponent.INSTANCE
         );
@@ -280,6 +282,8 @@ public class AutonomousTesting extends NextFTCOpMode {
 
     @Override
     public void onStop() {
+        int finalBallCount =
+                IntakeWithSensorsSubsystem2026.INSTANCE.getBallCount();
         ShooterSubsystem2026.INSTANCE.stop();
         IntakeWithSensorsSubsystem2026.INSTANCE.stopAll();
 
@@ -287,7 +291,7 @@ public class AutonomousTesting extends NextFTCOpMode {
             Pose finalPose = PedroComponent.follower().getPose();
             GlobalRobotData.allianceSide = GlobalRobotData.COLOR.RED;
             GlobalRobotData.endAutonPose = finalPose.copy();
-            GlobalRobotData.endAutonBallCount = -1;
+            GlobalRobotData.endAutonBallCount = finalBallCount;
             GlobalRobotData.endAutonTurretAngleDegrees = Double.NaN;
             GlobalRobotData.endAutonTurretServoCommandAngleDegrees = Double.NaN;
             GlobalRobotData.endAutonTurretServoOffsetDegrees = Double.NaN;
