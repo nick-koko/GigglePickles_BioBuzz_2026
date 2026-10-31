@@ -6,6 +6,7 @@ import com.pedropathing.geometry.BezierLine;
 import com.pedropathing.geometry.Pose;
 import com.pedropathing.paths.HeadingInterpolator;
 import com.pedropathing.paths.PathChain;
+import com.qualcomm.robotcore.eventloop.opmode.Disabled;
 import com.qualcomm.robotcore.util.RobotLog;
 
 import org.firstinspires.ftc.teamcode.GlobalRobotData;
@@ -45,6 +46,7 @@ import dev.nextftc.ftc.NextFTCOpMode;
     - (total possible perfect savings of 8.25s for a total of 10.25 ) Need minimum 7s
 
  */
+@Disabled
 @Configurable
 //@Autonomous(name = "closeBlueSide", group = "Comp")
 public class closeAutonPaths_WorldsTopTriangle extends NextFTCOpMode{
