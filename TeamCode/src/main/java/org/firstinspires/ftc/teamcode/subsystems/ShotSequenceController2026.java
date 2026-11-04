@@ -13,7 +13,7 @@ import com.qualcomm.robotcore.util.Range;
 public final class ShotSequenceController2026 {
 
     public static double TRIGGER_THRESHOLD = 0.10;
-    public static double FEED_SECONDS = 2.0;
+    public static double FEED_SECONDS = 1.2;
     public static boolean ENABLE_TIMED_BOOST = true;
     public static double BOOST_DELAY_SECONDS = 0.18;
     public static double BOOST_DURATION_SECONDS = 0.50;

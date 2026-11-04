@@ -411,8 +411,8 @@ public class Pickles2026Teleop extends NextFTCOpMode {
                 beamState(intake.isBallAtShooterBeamBroken()),
                 beamState(intake.isMiddleHighBeamBroken()),
                 beamState(intake.isMiddleLowBeamBroken()),
-                beamState(intake.isIntakeEntryBeamBroken())
-        );
+                beamState(intake.isIntakeEntryBeamBroken()),
+                beamState(intake.isIntakeEntryBeamBroken()));
         telemetry.addData(
                 "Tracked positions",
                 "shooter %s | middle-high %s | middle-low %s | entry %s",
@@ -509,7 +509,7 @@ public class Pickles2026Teleop extends NextFTCOpMode {
      * Placeholder for the future distance-to-RPM calibration table.
      */
     private static double calculateShooterRpmForDistance(double distanceInches) {
-        return SHOOTER_TARGET_RPM;
+        return 27 * distanceInches + 2300.7;
     }
 
     private double calculateAutomaticTurn(
