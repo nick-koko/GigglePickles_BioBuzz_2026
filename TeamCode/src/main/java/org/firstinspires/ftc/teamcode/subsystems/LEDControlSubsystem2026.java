@@ -38,6 +38,9 @@ public class LEDControlSubsystem2026 implements Subsystem {
     public static double STAGE_PULSE_ON_SECONDS = 0.15;
     public static double STAGE_PULSE_GAP_SECONDS = 0.10;
 
+    // Red/off blink: seconds for each half of the cycle.
+    public static double SHOOT_RANGE_WARNING_BLINK_SECONDS = 0.18;
+
     private Servo led1;
     private Servo led2;
     private LedPreset activePreset = LedPreset.RED;
@@ -47,6 +50,8 @@ public class LEDControlSubsystem2026 implements Subsystem {
     private double activeStagePulseOnSeconds;
     private double activeStagePulseGapSeconds;
     private LedPreset activeStagePulsePreset;
+    private boolean shootRangeWarningActive;
+    private long shootRangeWarningStartNanos;
     private int displayedBallCount;
     private double targetPulseUs;
     private double targetServoPosition;
@@ -57,6 +62,7 @@ public class LEDControlSubsystem2026 implements Subsystem {
     @Override
     public void initialize() {
         stagePulseActive = false;
+        shootRangeWarningActive = false;
         led1 = ActiveOpMode.hardwareMap().get(Servo.class, "rgb_color_PWM1");
         led2 = ActiveOpMode.hardwareMap().get(Servo.class, "rgb_color_PWM2");
         configurePwmRange(led1);
@@ -72,7 +78,7 @@ public class LEDControlSubsystem2026 implements Subsystem {
             displayBallCount(
                     IntakeWithSensorsSubsystem2026.INSTANCE.getBallCount()
             );
-        } else if (stagePulseActive) {
+        } else if (stagePulseActive || shootRangeWarningActive) {
             updateDisplay();
         }
     }
@@ -119,6 +125,19 @@ public class LEDControlSubsystem2026 implements Subsystem {
         return stagePulseActive;
     }
 
+    /** Range warnings override stage pulses and ball count; the underlying display keeps updating. */
+    public void setShootRangeWarning(boolean active) {
+        if (active && !shootRangeWarningActive) {
+            shootRangeWarningStartNanos = System.nanoTime();
+        }
+        shootRangeWarningActive = active;
+        updateDisplay();
+    }
+
+    public boolean isShootRangeWarningActive() {
+        return shootRangeWarningActive;
+    }
+
     private void updateDisplay() {
         LedPreset preset = requestedPreset;
         if (stagePulseActive) {
@@ -131,6 +150,13 @@ public class LEDControlSubsystem2026 implements Subsystem {
                     || elapsedSeconds >= secondPulseStart) {
                 preset = activeStagePulsePreset;
             }
+        }
+        if (shootRangeWarningActive) {
+            double interval = Double.isFinite(SHOOT_RANGE_WARNING_BLINK_SECONDS)
+                    ? Math.max(0.02, SHOOT_RANGE_WARNING_BLINK_SECONDS) : 0.18;
+            double elapsed = (System.nanoTime() - shootRangeWarningStartNanos) / 1e9;
+            boolean redPhase = ((long) (elapsed / interval) % 2) == 0;
+            preset = redPhase ? LedPreset.RED : LedPreset.OFF;
         }
         // Ball-count updates continue beneath the pulse, including in the gap.
         activePreset = preset;
@@ -202,6 +228,7 @@ public class LEDControlSubsystem2026 implements Subsystem {
      * Snake presets use the center of each documented 10-microsecond range.
      */
     public enum LedPreset {
+        OFF(1075.0),
         RED(1105.0),
         ORANGE(1200.0),
         YELLOW(1300.0),

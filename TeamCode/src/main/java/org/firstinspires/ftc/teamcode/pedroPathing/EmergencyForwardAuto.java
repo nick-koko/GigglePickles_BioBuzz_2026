@@ -49,6 +49,8 @@ public class EmergencyForwardAuto extends LinearOpMode {
 
         GlobalRobotData.hasAutonRun = false;
         GlobalRobotData.endAutonPose = null;
+        // This hardware-minimal fallback does not initialize the turret.
+        GlobalRobotData.endAutonTurret2026 = null;
 
         while (!isStarted() && !isStopRequested()) {
             if (gamepad1.x) {

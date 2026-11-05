@@ -14,6 +14,7 @@ import org.firstinspires.ftc.teamcode.subsystems.FlowerIntakeSubsystem2026;
 import org.firstinspires.ftc.teamcode.subsystems.IntakeWithSensorsSubsystem2026;
 import org.firstinspires.ftc.teamcode.subsystems.LEDControlSubsystem2026;
 import org.firstinspires.ftc.teamcode.subsystems.ShooterSubsystem2026;
+import org.firstinspires.ftc.teamcode.subsystems.TurretSubsystem2026;
 import org.firstinspires.ftc.teamcode.subsystems.ShotSequenceController2026;
 
 import java.util.ArrayList;
@@ -41,7 +42,8 @@ import dev.nextftc.ftc.components.BulkReadComponent;
 @Autonomous(name = "Blue Side Front Of Hive Test", group = "Comp")
 public class BlueSideTest extends NextFTCOpMode {
 
-    public static double SHOOTER_FLYWHEEL_RPM = 3200.0;
+    public static double SHOOTER_FLYWHEEL_RPM_High = 3150.0;
+    public static double SHOOTER_FLYWHEEL_RPM_Low = 3050.0;
     public static double SHOOTER_SPINUP_SECONDS = 2.0;
     public static double FLOWERY_WAIT_SECONDS = 1.0;
     public static double GARDEN_SLOW_START = 0.75;
@@ -80,22 +82,24 @@ public class BlueSideTest extends NextFTCOpMode {
     private final Pose farshooting2Segment1Heading = poseFactory.of(35, 120, 90);
     private final Pose farshooting2Segment2Start = poseFactory.of(35, 120, 90);
     private final Pose farshooting2Segment2End = poseFactory.of(35, 120, 305);
-    private final Pose gardenintake = poseFactory.of(8.8679, 8.3486, 180);
+    private final Pose gardenintake = poseFactory.of(8, 6.0, 180);
     private final Pose gardenintakeControl1 = poseFactory.of(0, 66.6066, 0);
     private final Pose gardenintakeControl2 = poseFactory.of(75.8361, 26.8206, 0);
-    private final Pose gardenintakeSegment1Start = poseFactory.of(8.8679, 8.3486, 305);
-    private final Pose gardenintakeSegment1End = poseFactory.of(8.8679, 8.3486, 270);
-    private final Pose gardenintakeSegment2Start = poseFactory.of(8.8679, 8.3486, 270);
-    private final Pose gardenintakeSegment2End = poseFactory.of(8.8679, 8.3486, 220);
-    private final Pose gardenintakeSegment3Start = poseFactory.of(8.8679, 8.3486, 220);
-    private final Pose gardenintakeSegment3End = poseFactory.of(8.8679, 8.3486, 220);
-    private final Pose gardenintakeSegment4Start = poseFactory.of(8.8679, 8.3486, 220);
-    private final Pose gardenintakeSegment4End = poseFactory.of(8.8679, 8.3486, 180);
-    private final Pose closeShoot2Start = poseFactory.of(8.8679, 8.3486, 180);
+    private final Pose gardenintakeSegment1Start = poseFactory.of(8, 6.0, 305);
+    private final Pose gardenintakeSegment1End = poseFactory.of(8, 6.0, 270);
+    private final Pose gardenintakeSegment2Start = poseFactory.of(8, 6.0, 270);
+    private final Pose gardenintakeSegment2End = poseFactory.of(8, 6.0, 220);
+    private final Pose gardenintakeSegment3Start = poseFactory.of(8, 6.0, 220);
+    private final Pose gardenintakeSegment3End = poseFactory.of(8, 6.0, 220);
+    private final Pose gardenintakeSegment4Start = poseFactory.of(8, 6.0, 220);
+    private final Pose gardenintakeSegment4End = poseFactory.of(8, 6.0, 180);
+    private final Pose closeShoot2Start = poseFactory.of(8, 6.0, 180);
     private final Pose closeShoot2 = poseFactory.of(42.924, 14.3419, 67);
     private final Pose parkingStart = poseFactory.of(42.924, 14.3419, 67);
-    private final Pose parking = poseFactory.of(11.1451, 95.3931, 0);
+    private final Pose parking = poseFactory.of(13, 95.3931, 0);
     private final Pose parkingControl1 = poseFactory.of(8.1788, 74.5683, 0);
+    private final Pose parkingFarStart = poseFactory.of(35, 120, 305);
+    private final Pose parkingFarControl1 = poseFactory.of(36.0595, 92.6635, 0);
 
     public Path closeShoot1() {
         return line(start, closeShoot1).linear(start, closeShoot1);
@@ -125,8 +129,15 @@ public class BlueSideTest extends NextFTCOpMode {
         return line(closeShoot2Start, closeShoot2).linear(closeShoot2Start, closeShoot2);
     }
 
+    public Path farshooting3() {
+        return curve(closeShoot2Start, farshooting2Control1, farshooting2).heading(Interpolator.piecewise().until(0.1646, Interpolator.constant(farshooting2Segment1Heading)).until(1, Interpolator.linear(farshooting2Segment2Start, farshooting2Segment2End)));
+    }
     public Path parking() {
         return curve(parkingStart, parkingControl1, parking).linear(parkingStart, parking);
+    }
+
+    public Path parkingFromFar() {
+        return curve(parkingFarStart, parkingFarControl1, parking).linear(parkingFarStart, parking);
     }
 
 //todo todo
@@ -138,13 +149,16 @@ public class BlueSideTest extends NextFTCOpMode {
     private PathChain farShootingPath;
     private PathChain parkingPath;
     private PathChain farshooting2Path;
+    private PathChain farshooting3Path;
     private PathChain flowerfarPath;
     private PathChain gardenintakePath;
     private PathChain closeshoot2Path;
-
+    private PathChain parkingFarPath;
 
 
     private boolean autonStarted;
+    // Selected during init: dpad up = far, dpad down = close.
+    private boolean shootGardenBallsFromFar;
     private enum AutonStage {
         READY,
         SPIN_UP,
@@ -169,7 +183,8 @@ public class BlueSideTest extends NextFTCOpMode {
                         ShooterSubsystem2026.INSTANCE,
                         IntakeWithSensorsSubsystem2026.INSTANCE,
                         LEDControlSubsystem2026.INSTANCE,
-                        FlowerIntakeSubsystem2026.INSTANCE
+                        FlowerIntakeSubsystem2026.INSTANCE,
+                        TurretSubsystem2026.INSTANCE
                 ),
                 BulkReadComponent.INSTANCE
         );
@@ -177,7 +192,9 @@ public class BlueSideTest extends NextFTCOpMode {
 
     @Override
     public void onInit() {
+        TurretSubsystem2026.INSTANCE.prepareAutonomous();
         autonStarted = false;
+        shootGardenBallsFromFar = false;
         autonStage = AutonStage.READY;
         stageStartNanos = 0L;
         LEDControlSubsystem2026.INSTANCE.clearStagePulse();
@@ -240,12 +257,17 @@ public class BlueSideTest extends NextFTCOpMode {
                 .addPath(closeShoot2())
                 .build();
 
+        farshooting3Path  = PedroComponent.follower().pathBuilder()
+                .addPath(farshooting3())
+                .build();
+
         parkingPath = PedroComponent.follower().pathBuilder()
                 .addPath(parking())
                 .build();
 
-
-
+        parkingFarPath = PedroComponent.follower().pathBuilder()
+                .addPath(parkingFromFar())
+                .build();
         // END PEDRO VISUALIZER BUILD-PATHS PASTE SECTION
     }
 
@@ -401,7 +423,7 @@ public class BlueSideTest extends NextFTCOpMode {
         return new FollowPath(farShootingPath);
         // END PATH-FOLLOWING SEQUENCE SECTION
     }
-    private Command pathFollowingToPark() {
+    private Command pathFollowingToParkFromClose() {
         // ---------------------------------------------------------------------
         // BEGIN PATH-FOLLOWING SEQUENCE SECTION
         //
@@ -410,6 +432,18 @@ public class BlueSideTest extends NextFTCOpMode {
         // ---------------------------------------------------------------------
 
         return new FollowPath(parkingPath);
+        // END PATH-FOLLOWING SEQUENCE SECTION
+    }
+
+    private Command pathFollowingToParkFromFar() {
+        // ---------------------------------------------------------------------
+        // BEGIN PATH-FOLLOWING SEQUENCE SECTION
+        //
+        // For one generated PathChain, the default return is sufficient.
+        // For multiple paths, return a SequentialGroup of FollowPath commands.
+        // ---------------------------------------------------------------------
+
+        return new FollowPath(parkingFarPath);
         // END PATH-FOLLOWING SEQUENCE SECTION
     }
 
@@ -461,7 +495,7 @@ public class BlueSideTest extends NextFTCOpMode {
         // END PATH-FOLLOWING SEQUENCE SECTION
     }
 
-    private Command pathFollowingToParking() {
+    private Command pathFollowingToShootingFar3() {
         // ---------------------------------------------------------------------
         // BEGIN PATH-FOLLOWING SEQUENCE SECTION
         //
@@ -469,7 +503,7 @@ public class BlueSideTest extends NextFTCOpMode {
         // For multiple paths, return a SequentialGroup of FollowPath commands.
         // ---------------------------------------------------------------------
 
-        return new FollowPath(parkingPath);
+        return new FollowPath(farshooting3Path);
         // END PATH-FOLLOWING SEQUENCE SECTION
     }
 
@@ -481,12 +515,12 @@ public class BlueSideTest extends NextFTCOpMode {
                 enterStage(AutonStage.SPIN_UP),
                 new InstantCommand(() ->
                         ShooterSubsystem2026.INSTANCE.spinUp(
-                                SHOOTER_FLYWHEEL_RPM
+                                SHOOTER_FLYWHEEL_RPM_Low
                         )
                 ),
                 new ParallelGroup(
                         new Delay( SHOOTER_SPINUP_SECONDS),
-                        pathFollowingShootClose1()
+                        pathFollowingShootClose1().endAfter(1.0)
                 ),
                 enterStage(AutonStage.SHOOT_PRELOADS),
                 new InstantCommand(shotSequence::start),
@@ -501,6 +535,11 @@ public class BlueSideTest extends NextFTCOpMode {
                 ),
                 enterStage(AutonStage.COLLECT),
                 new Delay( FLOWERY_WAIT_SECONDS),
+                new InstantCommand(() ->
+                        ShooterSubsystem2026.INSTANCE.spinUp(
+                                SHOOTER_FLYWHEEL_RPM_High
+                        )
+                ),
                 enterStage(AutonStage.DRIVE_TO_SHOOT),
                 new ParallelGroup(
                     pathFollowingCommandToFarShooting(),
@@ -516,7 +555,7 @@ public class BlueSideTest extends NextFTCOpMode {
 
                 enterStage(AutonStage.DRIVE_TO_FLOWER),
                 new ParallelGroup(
-                        pathFollowingToFlowerFar(),
+                        pathFollowingToFlowerFar().endAfter(2.5),
                         new InstantCommand(() ->
                                 IntakeWithSensorsSubsystem2026.INSTANCE.intakeForward()),
                         new InstantCommand(() ->
@@ -526,11 +565,14 @@ public class BlueSideTest extends NextFTCOpMode {
                 new Delay( FLOWERY_WAIT_SECONDS),
                 enterStage(AutonStage.DRIVE_TO_SHOOT),
                 new ParallelGroup(
-                        pathFollowingToShootingFar2()
+                        pathFollowingToShootingFar2(),
+                        new SequentialGroup(
+                                new Delay(0.5),
+                                new InstantCommand(() ->
+                                    FlowerIntakeSubsystem2026.INSTANCE.moveUp())
+                        )
                 ),
                 //new Delay(0.50),
-                new InstantCommand(() ->
-                        FlowerIntakeSubsystem2026.INSTANCE.moveUp()),
                 new Delay(0.75),
                 enterStage(AutonStage.SHOOT),
                 new InstantCommand(shotSequence::start),
@@ -541,14 +583,19 @@ public class BlueSideTest extends NextFTCOpMode {
                         new InstantCommand(() ->
                             IntakeWithSensorsSubsystem2026.INSTANCE.intakeForward())
                 ),
-                pathFollowingCloseShoot2(),
+                new Delay(2.0),
+                shootGardenBallsFromFar
+                        ? pathFollowingToShootingFar3()
+                        : pathFollowingCloseShoot2(),
                 new Delay(0.75),
                 enterStage(AutonStage.SHOOT),
                 new InstantCommand(shotSequence::start),
                 new WaitUntil(() -> !shotSequence.isActive()),
 
                 enterStage(AutonStage.PARK),
-                pathFollowingToPark(),
+                shootGardenBallsFromFar
+                        ? pathFollowingToParkFromFar()
+                        : pathFollowingToParkFromClose(),
                 new InstantCommand(() ->
                     ShooterSubsystem2026.INSTANCE.stop()),
                 new InstantCommand(() ->
@@ -577,8 +624,21 @@ public class BlueSideTest extends NextFTCOpMode {
 
     @Override
     public void onWaitForStart() {
+        if (gamepad1.dpad_up) {
+            shootGardenBallsFromFar = true;
+        } else if (gamepad1.dpad_down) {
+            shootGardenBallsFromFar = false;
+        }
+
+        TurretSubsystem2026.INSTANCE.addTelemetry(telemetry);
         Pose pose = PedroComponent.follower().getPose();
         addStageTelemetry();
+        telemetry.addData(
+                "Garden balls shot from",
+                shootGardenBallsFromFar
+                        ? "FAR (dpad up) -> park from far"
+                        : "CLOSE (dpad down) -> park from close"
+        );
 
         telemetry.addLine("Hello Pickle of the robot");
         telemetry.addLine("This is an Mr. Todone Speaking,");
@@ -587,7 +647,7 @@ public class BlueSideTest extends NextFTCOpMode {
         telemetry.addData(
                 "Shooter flywheel target",
                 "%.0f RPM",
-                SHOOTER_FLYWHEEL_RPM
+                SHOOTER_FLYWHEEL_RPM_High
         );
         telemetry.addData("Spin-up delay", "%.2f sec", SHOOTER_SPINUP_SECONDS);
         telemetry.addData(
@@ -607,11 +667,15 @@ public class BlueSideTest extends NextFTCOpMode {
     @Override
     public void onStartButtonPressed() {
         autonStarted = true;
-        autonomousSequence().schedule();
+        new SequentialGroup(
+                new WaitUntil(TurretSubsystem2026.INSTANCE::canShoot),
+                autonomousSequence()
+        ).schedule();
     }
 
     @Override
     public void onUpdate() {
+        TurretSubsystem2026.INSTANCE.addTelemetry(telemetry);
         // The shared controller owns feed timing and the timed shooter boost.
         shotSequence.update();
 
@@ -666,9 +730,11 @@ public class BlueSideTest extends NextFTCOpMode {
             GlobalRobotData.endAutonTurretAngleDegrees = Double.NaN;
             GlobalRobotData.endAutonTurretServoCommandAngleDegrees = Double.NaN;
             GlobalRobotData.endAutonTurretServoOffsetDegrees = Double.NaN;
+            TurretSubsystem2026.INSTANCE.saveAutonomousHandoff();
             GlobalRobotData.hasAutonRun = true;
         }
 
+        TurretSubsystem2026.INSTANCE.stop();
         super.onStop();
     }
 }

@@ -8,12 +8,14 @@ import com.pedropathing.paths.HeadingInterpolator;
 import com.pedropathing.paths.Path;
 import com.pedropathing.paths.PathChain;
 import com.qualcomm.robotcore.eventloop.opmode.Autonomous;
+import com.qualcomm.robotcore.eventloop.opmode.Disabled;
 
 import org.firstinspires.ftc.teamcode.GlobalRobotData;
 import org.firstinspires.ftc.teamcode.subsystems.FlowerIntakeSubsystem2026;
 import org.firstinspires.ftc.teamcode.subsystems.IntakeWithSensorsSubsystem2026;
 import org.firstinspires.ftc.teamcode.subsystems.LEDControlSubsystem2026;
 import org.firstinspires.ftc.teamcode.subsystems.ShooterSubsystem2026;
+import org.firstinspires.ftc.teamcode.subsystems.TurretSubsystem2026;
 import org.firstinspires.ftc.teamcode.subsystems.ShotSequenceController2026;
 
 import java.util.ArrayList;
@@ -37,6 +39,7 @@ import dev.nextftc.ftc.components.BulkReadComponent;
  * <p>The generated Pedro poses and paths stay in this file. Replace the
  * clearly marked placeholder sections with output from the path visualizer.</p>
  */
+@Disabled
 @Configurable
 @Autonomous(name = "Blue Side Front Of Hive", group = "Comp")
 public class BlueSideFrontOfHive extends NextFTCOpMode {
@@ -138,7 +141,8 @@ public class BlueSideFrontOfHive extends NextFTCOpMode {
                         ShooterSubsystem2026.INSTANCE,
                         IntakeWithSensorsSubsystem2026.INSTANCE,
                         LEDControlSubsystem2026.INSTANCE,
-                        FlowerIntakeSubsystem2026.INSTANCE
+                        FlowerIntakeSubsystem2026.INSTANCE,
+                        TurretSubsystem2026.INSTANCE
                 ),
                 BulkReadComponent.INSTANCE
         );
@@ -146,6 +150,7 @@ public class BlueSideFrontOfHive extends NextFTCOpMode {
 
     @Override
     public void onInit() {
+        TurretSubsystem2026.INSTANCE.prepareAutonomous();
         autonStarted = false;
         autonStage = AutonStage.READY;
         stageStartNanos = 0L;
@@ -465,6 +470,7 @@ public class BlueSideFrontOfHive extends NextFTCOpMode {
 
     @Override
     public void onWaitForStart() {
+        TurretSubsystem2026.INSTANCE.addTelemetry(telemetry);
         Pose pose = PedroComponent.follower().getPose();
         addStageTelemetry();
 
@@ -496,11 +502,15 @@ public class BlueSideFrontOfHive extends NextFTCOpMode {
     @Override
     public void onStartButtonPressed() {
         autonStarted = true;
-        autonomousSequence().schedule();
+        new SequentialGroup(
+                new WaitUntil(TurretSubsystem2026.INSTANCE::canShoot),
+                autonomousSequence()
+        ).schedule();
     }
 
     @Override
     public void onUpdate() {
+        TurretSubsystem2026.INSTANCE.addTelemetry(telemetry);
         // The shared controller owns feed timing and the timed shooter boost.
         shotSequence.update();
 
@@ -556,9 +566,11 @@ public class BlueSideFrontOfHive extends NextFTCOpMode {
             GlobalRobotData.endAutonTurretAngleDegrees = Double.NaN;
             GlobalRobotData.endAutonTurretServoCommandAngleDegrees = Double.NaN;
             GlobalRobotData.endAutonTurretServoOffsetDegrees = Double.NaN;
+            TurretSubsystem2026.INSTANCE.saveAutonomousHandoff();
             GlobalRobotData.hasAutonRun = true;
         }
 
+        TurretSubsystem2026.INSTANCE.stop();
         super.onStop();
     }
 }

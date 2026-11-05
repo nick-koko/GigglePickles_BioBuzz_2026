@@ -14,6 +14,7 @@ import org.firstinspires.ftc.teamcode.subsystems.IntakeWithSensorsSubsystem2026;
 import org.firstinspires.ftc.teamcode.subsystems.LEDControlSubsystem2026;
 import org.firstinspires.ftc.teamcode.subsystems.ShotSequenceController2026;
 import org.firstinspires.ftc.teamcode.subsystems.ShooterSubsystem2026;
+import org.firstinspires.ftc.teamcode.subsystems.TurretSubsystem2026;
 
 import dev.nextftc.core.commands.Command;
 import dev.nextftc.core.commands.delays.Delay;
@@ -75,7 +76,8 @@ public class RedSideFrontOfHive extends NextFTCOpMode {
                         ShooterSubsystem2026.INSTANCE,
                         IntakeWithSensorsSubsystem2026.INSTANCE,
                         LEDControlSubsystem2026.INSTANCE,
-                        FlowerIntakeSubsystem2026.INSTANCE
+                        FlowerIntakeSubsystem2026.INSTANCE,
+                        TurretSubsystem2026.INSTANCE
                 ),
                 BulkReadComponent.INSTANCE
         );
@@ -83,6 +85,7 @@ public class RedSideFrontOfHive extends NextFTCOpMode {
 
     @Override
     public void onInit() {
+        TurretSubsystem2026.INSTANCE.prepareAutonomous();
         GlobalRobotData.allianceSide = GlobalRobotData.COLOR.RED;
 
         // Clear any handoff left from an earlier run. This autonomous publishes
@@ -207,6 +210,7 @@ public class RedSideFrontOfHive extends NextFTCOpMode {
 
     @Override
     public void onWaitForStart() {
+        TurretSubsystem2026.INSTANCE.addTelemetry(telemetry);
         Pose pose = PedroComponent.follower().getPose();
 
         telemetry.addLine("Hello Pickle of the robot");
@@ -237,11 +241,15 @@ public class RedSideFrontOfHive extends NextFTCOpMode {
     @Override
     public void onStartButtonPressed() {
         autonStarted = true;
-        autonomousSequence().schedule();
+        new SequentialGroup(
+                new WaitUntil(TurretSubsystem2026.INSTANCE::canShoot),
+                autonomousSequence()
+        ).schedule();
     }
 
     @Override
     public void onUpdate() {
+        TurretSubsystem2026.INSTANCE.addTelemetry(telemetry);
         // The shared controller owns feed timing and the timed shooter boost.
         shotSequence.update();
 
@@ -295,9 +303,11 @@ public class RedSideFrontOfHive extends NextFTCOpMode {
             GlobalRobotData.endAutonTurretAngleDegrees = Double.NaN;
             GlobalRobotData.endAutonTurretServoCommandAngleDegrees = Double.NaN;
             GlobalRobotData.endAutonTurretServoOffsetDegrees = Double.NaN;
+            TurretSubsystem2026.INSTANCE.saveAutonomousHandoff();
             GlobalRobotData.hasAutonRun = true;
         }
 
+        TurretSubsystem2026.INSTANCE.stop();
         super.onStop();
     }
 }

@@ -10,6 +10,8 @@ import org.firstinspires.ftc.teamcode.subsystems.IntakeWithSensorsSubsystem2026;
 import org.firstinspires.ftc.teamcode.subsystems.LEDControlSubsystem2026;
 import org.firstinspires.ftc.teamcode.subsystems.ShotSequenceController2026;
 import org.firstinspires.ftc.teamcode.subsystems.ShooterSubsystem2026;
+import org.firstinspires.ftc.teamcode.subsystems.TurretSubsystem2026;
+import org.firstinspires.ftc.teamcode.subsystems.shot.ShotCalibrationTable2026;
 import org.firstinspires.ftc.teamcode.util.HeadingTurnController2026;
 
 import dev.nextftc.core.components.SubsystemComponent;
@@ -21,7 +23,7 @@ import dev.nextftc.ftc.components.BulkReadComponent;
  * Minimal driver-controlled OpMode for the 2026 BioBuzz robot.
  *
  * <p>This records alliance and accepts an autonomous pose handoff, but
- * intentionally has no alliance-specific driving, camera, turret, or 2025
+ * intentionally has no alliance-specific driving, camera, or 2025
  * three-ball state-machine dependencies.</p>
  */
 @Configurable
@@ -34,18 +36,31 @@ public class Pickles2026Teleop extends NextFTCOpMode {
 
     public static double DRIVE_POWER = 1.0;
     public static double TURN_POWER = 0.5;
-    public static double SHOOTER_TARGET_RPM = 3175.0;
+    public static double SHOOTER_FALLBACK_RPM = 3175.0;
     public static double SHOOTER_RPM_STEP = 25.0;
+    // GP2 D-pad adjusts this additive trim in either regression or table mode.
+    public static double SHOOTER_RPM_TRIM = 0.0;
+    public static boolean USE_SHOT_TABLE = false;
+    public static double REGRESSION_RPM_PER_INCH = 27.0;
+    public static double REGRESSION_RPM_INTERCEPT = 2300.7;
     // Shows only the values needed while tuning shots on the Driver Station.
     public static boolean SHOT_TUNING_TELEMETRY_ONLY = false;
 
-    // Temporary fixed target until distance-based shot calculation is restored.
+    // Nominal targets. Table aim deltas are added after choosing between these.
     public static double SHOOT_TARGET_X = 58.0;
     public static double SHOOT_TARGET_Y  = 60.0;
     public static double SHOOT_TARGET_Y_SPLIT = 72.0;
     public static double SHOOT_TARGET_Y_ABOVE_SPLIT = 84.0;
     public static double SHOOT_TARGET_X_ABOVE_SPLIT = 58.0;
     public static boolean AUTO_AIM_STARTS_SHOOTER = true;
+
+    // TODO: enter the measured limits. Zero disables that bound; units are inches
+    // from the robot's Pedro pose to the currently selected shooting target.
+    public static double MIN_SHOOT_DISTANCE_INCHES = 37.7;
+    public static double MAX_SHOOT_DISTANCE_INCHES = 82.0;
+    public static boolean SHOOT_RANGE_WARNINGS_ENABLED = true;
+    // Keeps ball-count LEDs visible while collecting. False warns anywhere out of range.
+    public static boolean SHOOT_RANGE_WARNING_ONLY_WHILE_AIMING_OR_FIRING = true;
 
     // false: custom P/D below. true: Pedro heading PIDF gains from Constants.
     public static boolean USE_PEDRO_AIM_PIDF = false;
@@ -75,6 +90,7 @@ public class Pickles2026Teleop extends NextFTCOpMode {
     private HeadingTurnController2026 headingTurnController;
     private boolean automaticTurnWasActive;
     private boolean previousUsePedroAimPidf;
+    private boolean previousTableSolutionActive;
     private double previousAimTargetX;
     private double previousAimTargetY;
     private double automaticTurnRawPower;
@@ -88,7 +104,8 @@ public class Pickles2026Teleop extends NextFTCOpMode {
                         ShooterSubsystem2026.INSTANCE,
                         IntakeWithSensorsSubsystem2026.INSTANCE,
                         LEDControlSubsystem2026.INSTANCE,
-                        FlowerIntakeSubsystem2026.INSTANCE
+                        FlowerIntakeSubsystem2026.INSTANCE,
+                        TurretSubsystem2026.INSTANCE
                 ),
                 BulkReadComponent.INSTANCE
         );
@@ -96,6 +113,10 @@ public class Pickles2026Teleop extends NextFTCOpMode {
 
     @Override
     public void onInit() {
+        // Restore the turret reference before consuming the autonomous handoff.
+        // This only reads sensors; even a missing reference cannot move the turret in Init.
+        TurretSubsystem2026.INSTANCE.prepareTeleop();
+        LEDControlSubsystem2026.INSTANCE.setShootRangeWarning(false);
         IntakeWithSensorsSubsystem2026.INSTANCE.stopAll();
         ShooterSubsystem2026.INSTANCE.stop();
         shotSequence.reset();
@@ -158,9 +179,9 @@ public class Pickles2026Teleop extends NextFTCOpMode {
 
         telemetry.addLine("Pickles 2026 ready");
         telemetry.addLine("GP1: left stick drive/strafe, right stick turn");
-        telemetry.addLine("GP1: hold LB to face shooting target");
+        telemetry.addLine("GP1: hold LB to aim chassis or turret at shooting target");
         telemetry.addLine("GP1 D-pad: face absolute 0/90/180/-90 headings");
-        telemetry.addLine("GP2 D-pad up/down: adjust shooter RPM");
+        telemetry.addLine("GP2 D-pad up/down: trim calculated shooter RPM");
         telemetry.addLine("GP1/GP2: A intake/re-arm, hold B reverse, X stop");
         telemetry.addLine("GP1/GP2: RB shooter toggle, press RT for timed feed");
         telemetry.addLine("GP2: LB toggles flower intake up/down");
@@ -182,11 +203,14 @@ public class Pickles2026Teleop extends NextFTCOpMode {
                 beamState(intake.isIntakeEntryBeamBroken())
         );
         telemetry.addData("Shooter gate", "%.3f", intake.getGatePosition());
+        telemetry.addData("Shot RPM selection", USE_SHOT_TABLE ? "TABLE (regression if empty)" : "REGRESSION");
+        TurretSubsystem2026.INSTANCE.addTelemetry(telemetry);
         telemetry.update();
     }
 
     @Override
     public void onStartButtonPressed() {
+        TurretSubsystem2026.INSTANCE.startTeleop();
         PedroComponent.follower().setStartingPose(startingPose);
         PedroComponent.follower().startTeleopDrive();
         headingTurnController = new HeadingTurnController2026(
@@ -195,7 +219,7 @@ public class Pickles2026Teleop extends NextFTCOpMode {
         automaticTurnWasActive = false;
         FlowerIntakeSubsystem2026.INSTANCE.moveUp();
         IntakeWithSensorsSubsystem2026.INSTANCE.intakeForward();
-       ShooterSubsystem2026.INSTANCE.spinUp(3175.0);
+        ShooterSubsystem2026.INSTANCE.spinUp(calculateShotSettings(startingPose).rpm);
         shotSequence.reset();
     }
 
@@ -205,15 +229,13 @@ public class Pickles2026Teleop extends NextFTCOpMode {
         ShooterSubsystem2026 shooter = ShooterSubsystem2026.INSTANCE;
         FlowerIntakeSubsystem2026 flower = FlowerIntakeSubsystem2026.INSTANCE;
         LEDControlSubsystem2026 leds = LEDControlSubsystem2026.INSTANCE;
+        TurretSubsystem2026 turret = TurretSubsystem2026.INSTANCE;
 
         if (gamepad2.dpadUpWasPressed()) {
-            SHOOTER_TARGET_RPM += Math.abs(SHOOTER_RPM_STEP);
+            SHOOTER_RPM_TRIM += Math.abs(SHOOTER_RPM_STEP);
         }
         if (gamepad2.dpadDownWasPressed()) {
-            SHOOTER_TARGET_RPM = Math.max(
-                    0.0,
-                    SHOOTER_TARGET_RPM - Math.abs(SHOOTER_RPM_STEP)
-            );
+            SHOOTER_RPM_TRIM -= Math.abs(SHOOTER_RPM_STEP);
         }
         if (gamepad2.left_bumper) {
             flower.moveDown();
@@ -229,15 +251,14 @@ public class Pickles2026Teleop extends NextFTCOpMode {
         Pose pose = PedroComponent.follower().getPose();
         double angularVelocityRadiansPerSecond =
                 PedroComponent.follower().getPoseTracker().getAngularVelocity();
-        double targetY = SHOOT_TARGET_Y;
-        double targetX = SHOOT_TARGET_X;
-        if ((pose.getY() > SHOOT_TARGET_Y_SPLIT)) {
-            targetY = SHOOT_TARGET_Y_ABOVE_SPLIT;
-            targetX = SHOOT_TARGET_X_ABOVE_SPLIT;
-        }
+        ShotSettings shot = calculateShotSettings(pose);
+        double targetX = shot.aimX;
+        double targetY = shot.aimY;
         double targetDx = targetX - pose.getX();
         double targetDy = targetY - pose.getY();
-        double targetDistanceInches = Math.hypot(targetDx, targetDy);
+        // Range warnings and regression use distance to the nominal physical target,
+        // not the calibrated aim point (which may intentionally be above/beside it).
+        double targetDistanceInches = shot.distanceInches;
         double targetHeadingRadians = Math.atan2(targetDy, targetDx);
 
         String turnMode = "MANUAL";
@@ -245,29 +266,29 @@ public class Pickles2026Teleop extends NextFTCOpMode {
         double headingErrorRadians = 0.0;
         automaticTurnRawPower = 0.0;
 
-        if (gamepad1.left_bumper || gamepad2.right_bumper) {
-            if (!automaticTurnWasActive || previousUsePedroAimPidf != USE_PEDRO_AIM_PIDF
-                    || targetX != previousAimTargetX || targetY != previousAimTargetY) {
-                headingTurnController.reset();
+        boolean aimRequested = gamepad1.left_bumper || gamepad2.right_bumper;
+        if (aimRequested) {
+            if (turret.usesTurretAim()) {
+                turret.aimAt(targetX, targetY, pose.getX(), pose.getY(), pose.getHeading());
+                turnMode = "TURRET TARGET / MANUAL CHASSIS";
+            } else {
+                if (!automaticTurnWasActive || previousUsePedroAimPidf != USE_PEDRO_AIM_PIDF
+                    || shot.nominalX != previousAimTargetX || shot.nominalY != previousAimTargetY
+                    || (shot.table != null) != previousTableSolutionActive) {
+                    headingTurnController.reset();
+                }
+                commandedHeadingRadians = targetHeadingRadians - turret.getChassisAimOffsetRadians();
+                headingErrorRadians = normalizeRadians(commandedHeadingRadians - pose.getHeading());
+                turn = calculateAutomaticTurn(
+                        pose,
+                        commandedHeadingRadians,
+                        headingErrorRadians,
+                        angularVelocityRadiansPerSecond,
+                        AIM_TURN_KP_PER_DEGREE
+                );
+                turnMode = "SHOOT TARGET";
             }
-            commandedHeadingRadians = targetHeadingRadians;
-            headingErrorRadians = normalizeRadians(
-                    commandedHeadingRadians - pose.getHeading()
-            );
-            turn = calculateAutomaticTurn(
-                    pose,
-                    commandedHeadingRadians,
-                    headingErrorRadians,
-                    angularVelocityRadiansPerSecond,
-                    AIM_TURN_KP_PER_DEGREE
-            );
-            turnMode = "SHOOT TARGET";
 
-            if (AUTO_AIM_STARTS_SHOOTER) {
-                shooter.spinUp(calculateShooterRpmForDistance(
-                        targetDistanceInches
-                ));
-            }
         } /* else if (ENABLE_DPAD_TURNING) {
             if (gamepad1.dpad_up) {
                 commandedHeadingRadians =
@@ -301,10 +322,12 @@ public class Pickles2026Teleop extends NextFTCOpMode {
             }
         } */
 
-        automaticTurnWasActive = gamepad1.left_bumper;
+        automaticTurnWasActive = aimRequested && !turret.usesTurretAim();
         previousUsePedroAimPidf = USE_PEDRO_AIM_PIDF;
-        previousAimTargetX = targetX;
-        previousAimTargetY = targetY;
+        // Smoothly changing table offsets must not re-prime Pedro's PIDF every loop.
+        previousAimTargetX = shot.nominalX;
+        previousAimTargetY = shot.nominalY;
+        previousTableSolutionActive = shot.table != null;
 
         PedroComponent.follower().setTeleOpDrive(
                 drive,
@@ -324,12 +347,10 @@ public class Pickles2026Teleop extends NextFTCOpMode {
         } else {
             intake.setJamReversing(gamepad1.b || gamepad2.b);
         }
-        if (gamepad1.rightBumperWasPressed()) {
-            shooter.toggle(SHOOTER_TARGET_RPM);
-        }
-        if (shooter.isEnabled()) {
-            shooter.spinUp(SHOOTER_TARGET_RPM);
-        }
+        updateShooter(shot.rpm, aimRequested, gamepad1.rightBumperWasPressed());
+        // Cancel before updating with the real trigger state. Holding RT through
+        // calibration cannot queue a surprise shot; release/re-press is required.
+        if (!turret.canShoot()) shotSequence.cancel();
         shotSequence.update(
                 shotSequence.isTriggerPressed(
                         gamepad1.right_trigger,
@@ -337,16 +358,39 @@ public class Pickles2026Teleop extends NextFTCOpMode {
                 )
         );
 
+        boolean limitsValid = Double.isFinite(MIN_SHOOT_DISTANCE_INCHES)
+                && Double.isFinite(MAX_SHOOT_DISTANCE_INCHES)
+                && MIN_SHOOT_DISTANCE_INCHES >= 0 && MAX_SHOOT_DISTANCE_INCHES >= 0
+                && (MIN_SHOOT_DISTANCE_INCHES == 0 || MAX_SHOOT_DISTANCE_INCHES == 0
+                    || MIN_SHOOT_DISTANCE_INCHES <= MAX_SHOOT_DISTANCE_INCHES);
+        boolean tooClose = limitsValid && MIN_SHOOT_DISTANCE_INCHES > 0
+                && targetDistanceInches < MIN_SHOOT_DISTANCE_INCHES;
+        boolean tooFar = limitsValid && MAX_SHOOT_DISTANCE_INCHES > 0
+                && targetDistanceInches > MAX_SHOOT_DISTANCE_INCHES;
+        boolean firingRequested = shotSequence.isTriggerPressed(
+                gamepad1.right_trigger, gamepad2.right_trigger);
+        leds.setShootRangeWarning(SHOOT_RANGE_WARNINGS_ENABLED && (tooClose || tooFar)
+                && (!SHOOT_RANGE_WARNING_ONLY_WHILE_AIMING_OR_FIRING
+                    || aimRequested || firingRequested || shotSequence.isActive()));
+        String shootingRangeStatus = !SHOOT_RANGE_WARNINGS_ENABLED ? "DISABLED"
+                : !limitsValid ? "INVALID LIMITS"
+                : MIN_SHOOT_DISTANCE_INCHES == 0 && MAX_SHOOT_DISTANCE_INCHES == 0 ? "SET MIN/MAX LIMITS"
+                : !Double.isFinite(targetDistanceInches) ? "UNKNOWN DISTANCE"
+                : tooClose ? "TOO CLOSE" : tooFar ? "TOO FAR" : "IN RANGE";
+
         if (SHOT_TUNING_TELEMETRY_ONLY) {
+            addShotSettingsTelemetry(shot);
+            addShootingRangeTelemetry(shootingRangeStatus);
+            turret.addTelemetry(telemetry);
             double shooterTargetRpm = shooter.getTargetFlywheelRpm() > 0.0
                     ? shooter.getTargetFlywheelRpm()
-                    : SHOOTER_TARGET_RPM;
+                    : shot.rpm;
             telemetry.addData("Robot X", "%.1f in", pose.getX());
             telemetry.addData("Robot Y", "%.1f in", pose.getY());
             telemetry.addData("Robot angle", "%.1f deg", Math.toDegrees(pose.getHeading()));
             telemetry.addData("Target X", "%.1f in", targetX);
             telemetry.addData("Target Y", "%.1f in", targetY);
-            telemetry.addData("Distance to target", "%.1f in", targetDistanceInches);
+            telemetry.addData("Distance to nominal target", "%.1f in", targetDistanceInches);
             telemetry.addData("Shooter target RPM", "%.0f", shooterTargetRpm);
             telemetry.addData("Flywheel measured RPM", "%.0f", shooter.getMeasuredFlywheelRpm());
             telemetry.update();
@@ -354,6 +398,9 @@ public class Pickles2026Teleop extends NextFTCOpMode {
         }
 
         telemetry.addData("Pose X", "%.1f in", pose.getX());
+        addShotSettingsTelemetry(shot);
+        addShootingRangeTelemetry(shootingRangeStatus);
+        turret.addTelemetry(telemetry);
         telemetry.addData("Pose Y", "%.1f in", pose.getY());
         telemetry.addData("Heading", "%.1f deg", Math.toDegrees(pose.getHeading()));
         telemetry.addData("Turn mode", turnMode);
@@ -379,7 +426,7 @@ public class Pickles2026Teleop extends NextFTCOpMode {
         );
         telemetry.addData(
                 "Shooting target",
-                "(%.1f, %.1f), distance %.1f in",
+                "aim (%.1f, %.1f), nominal distance %.1f in",
                 targetX,
                 targetY,
                 targetDistanceInches
@@ -491,6 +538,8 @@ public class Pickles2026Teleop extends NextFTCOpMode {
 
     @Override
     public void onStop() {
+        LEDControlSubsystem2026.INSTANCE.setShootRangeWarning(false);
+        TurretSubsystem2026.INSTANCE.stop();
         shotSequence.cancel();
         IntakeWithSensorsSubsystem2026.INSTANCE.stopAll();
         ShooterSubsystem2026.INSTANCE.stop();
@@ -505,11 +554,77 @@ public class Pickles2026Teleop extends NextFTCOpMode {
         );
     }
 
-    /**
-     * Placeholder for the future distance-to-RPM calibration table.
-     */
+    private void addShootingRangeTelemetry(String status) {
+        telemetry.addData("Shooting range", status);
+        telemetry.addData("Shooting range limits", "min %.1f / max %.1f in (0 = disabled)",
+                MIN_SHOOT_DISTANCE_INCHES, MAX_SHOOT_DISTANCE_INCHES);
+        telemetry.addData("Range warning LEDs", LEDControlSubsystem2026.INSTANCE.isShootRangeWarningActive());
+    }
+
+    private static void updateShooter(double rpm, boolean aimRequested, boolean toggleRequested) {
+        ShooterSubsystem2026 shooter = ShooterSubsystem2026.INSTANCE;
+        boolean runShooter = shooter.isEnabled() || (aimRequested && AUTO_AIM_STARTS_SHOOTER);
+        if (toggleRequested) runShooter = !runShooter;
+        // One final RPM command. The selected regression/table result is never
+        // overwritten by a fixed target later in the loop.
+        if (runShooter) shooter.spinUp(rpm);
+        else if (shooter.isEnabled()) shooter.stop();
+    }
+
+    private static ShotSettings calculateShotSettings(Pose pose) {
+        double nominalX = pose.getY() > SHOOT_TARGET_Y_SPLIT
+                ? SHOOT_TARGET_X_ABOVE_SPLIT : SHOOT_TARGET_X;
+        double nominalY = pose.getY() > SHOOT_TARGET_Y_SPLIT
+                ? SHOOT_TARGET_Y_ABOVE_SPLIT : SHOOT_TARGET_Y;
+        double distance = Math.hypot(nominalX - pose.getX(), nominalY - pose.getY());
+        ShotCalibrationTable2026.Solution table = USE_SHOT_TABLE
+                ? ShotCalibrationTable2026.lookup(pose.getX(), pose.getY()) : null;
+        double baseRpm = table == null ? calculateShooterRpmForDistance(distance) : table.flywheelRpm;
+        String source = table != null ? "TABLE"
+                : USE_SHOT_TABLE ? "REGRESSION (no valid table rows)" : "REGRESSION";
+        if (!Double.isFinite(baseRpm) || baseRpm <= 0) {
+            baseRpm = Double.isFinite(SHOOTER_FALLBACK_RPM) ? Math.max(0, SHOOTER_FALLBACK_RPM) : 0;
+            table = null;
+            source = "FIXED FALLBACK (invalid calculation)";
+        }
+        double trim = Double.isFinite(SHOOTER_RPM_TRIM) ? SHOOTER_RPM_TRIM : 0;
+        return new ShotSettings(nominalX, nominalY, distance, baseRpm,
+                Math.max(0, baseRpm + trim), table, source);
+    }
+
+    private void addShotSettingsTelemetry(ShotSettings shot) {
+        telemetry.addData("Shot RPM source", shot.source);
+        telemetry.addData("Calculated RPM / trim", "%.0f / %+.0f", shot.baseRpm, SHOOTER_RPM_TRIM);
+        telemetry.addData("Nominal shooting target", "(%.1f, %.1f)", shot.nominalX, shot.nominalY);
+        telemetry.addData("Aim delta X / Y", "%+.2f / %+.2f in",
+                shot.aimX - shot.nominalX, shot.aimY - shot.nominalY);
+        if (shot.table != null) {
+            telemetry.addData("Shot table samples / nearest", "%d / %.1f in",
+                    shot.table.samplesUsed, shot.table.nearestSampleDistanceInches);
+        }
+    }
+
+    private static final class ShotSettings {
+        final double nominalX, nominalY, aimX, aimY, distanceInches, baseRpm, rpm;
+        final ShotCalibrationTable2026.Solution table;
+        final String source;
+
+        ShotSettings(double nominalX, double nominalY, double distance, double baseRpm, double rpm,
+                     ShotCalibrationTable2026.Solution table, String source) {
+            this.nominalX = nominalX;
+            this.nominalY = nominalY;
+            aimX = nominalX + (table == null ? 0 : table.deltaAimX);
+            aimY = nominalY + (table == null ? 0 : table.deltaAimY);
+            distanceInches = distance;
+            this.baseRpm = baseRpm;
+            this.rpm = rpm;
+            this.table = table;
+            this.source = source;
+        }
+    }
+
     private static double calculateShooterRpmForDistance(double distanceInches) {
-        return 27 * distanceInches + 2300.7;
+        return REGRESSION_RPM_PER_INCH * distanceInches + REGRESSION_RPM_INTERCEPT;
     }
 
     private double calculateAutomaticTurn(
