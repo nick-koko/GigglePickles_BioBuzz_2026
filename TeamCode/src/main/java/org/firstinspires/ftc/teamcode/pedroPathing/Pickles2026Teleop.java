@@ -41,23 +41,22 @@ public class Pickles2026Teleop extends NextFTCOpMode {
     // GP2 D-pad adjusts this additive trim in either regression or table mode.
     public static double SHOOTER_RPM_TRIM = 0.0;
     public static boolean USE_SHOT_TABLE = false;
-    public static double REGRESSION_RPM_PER_INCH = 27.0;
-    public static double REGRESSION_RPM_INTERCEPT = 2300.7;
+    public static double REGRESSION_RPM_PER_INCH = 16.2; //26.5
+    public static double REGRESSION_RPM_INTERCEPT = 2410; //2015
     // Shows only the values needed while tuning shots on the Driver Station.
     public static boolean SHOT_TUNING_TELEMETRY_ONLY = false;
 
-    // Nominal targets. Table aim deltas are added after choosing between these.
+    // Fixed X aim for all robot positions; Y target still switches by Y position.
     public static double SHOOT_TARGET_X = 58.0;
-    public static double SHOOT_TARGET_Y  = 60.0;
+    public static double SHOOT_TARGET_Y = 60.0;
     public static double SHOOT_TARGET_Y_SPLIT = 72.0;
     public static double SHOOT_TARGET_Y_ABOVE_SPLIT = 84.0;
-    public static double SHOOT_TARGET_X_ABOVE_SPLIT = 58.0;
     public static boolean AUTO_AIM_STARTS_SHOOTER = true;
 
     // TODO: enter the measured limits. Zero disables that bound; units are inches
     // from the robot's Pedro pose to the currently selected shooting target.
     public static double MIN_SHOOT_DISTANCE_INCHES = 37.7;
-    public static double MAX_SHOOT_DISTANCE_INCHES = 82.0;
+    public static double MAX_SHOOT_DISTANCE_INCHES = 70.0;
     public static boolean SHOOT_RANGE_WARNINGS_ENABLED = true;
     // Keeps ball-count LEDs visible while collecting. False warns anywhere out of range.
     public static boolean SHOOT_RANGE_WARNING_ONLY_WHILE_AIMING_OR_FIRING = true;
@@ -273,8 +272,8 @@ public class Pickles2026Teleop extends NextFTCOpMode {
                 turnMode = "TURRET TARGET / MANUAL CHASSIS";
             } else {
                 if (!automaticTurnWasActive || previousUsePedroAimPidf != USE_PEDRO_AIM_PIDF
-                    || shot.nominalX != previousAimTargetX || shot.nominalY != previousAimTargetY
-                    || (shot.table != null) != previousTableSolutionActive) {
+                        || shot.nominalX != previousAimTargetX || shot.nominalY != previousAimTargetY
+                        || (shot.table != null) != previousTableSolutionActive) {
                     headingTurnController.reset();
                 }
                 commandedHeadingRadians = targetHeadingRadians - turret.getChassisAimOffsetRadians();
@@ -348,30 +347,36 @@ public class Pickles2026Teleop extends NextFTCOpMode {
             intake.setJamReversing(gamepad1.b || gamepad2.b);
         }
         updateShooter(shot.rpm, aimRequested, gamepad1.rightBumperWasPressed());
-        // Cancel before updating with the real trigger state. Holding RT through
-        // calibration cannot queue a surprise shot; release/re-press is required.
-        if (!turret.canShoot()) shotSequence.cancel();
+
+        // Calculate shooting range before processing trigger inputs.
+        boolean limitsValid = Double.isFinite(MIN_SHOOT_DISTANCE_INCHES)
+                && Double.isFinite(MAX_SHOOT_DISTANCE_INCHES)
+                && MIN_SHOOT_DISTANCE_INCHES >= 0 && MAX_SHOOT_DISTANCE_INCHES >= 0
+                && (MIN_SHOOT_DISTANCE_INCHES == 0 || MAX_SHOOT_DISTANCE_INCHES == 0
+                || MIN_SHOOT_DISTANCE_INCHES <= MAX_SHOOT_DISTANCE_INCHES);
+        boolean tooClose = limitsValid && MIN_SHOOT_DISTANCE_INCHES > 0
+                && targetDistanceInches < MIN_SHOOT_DISTANCE_INCHES;
+        boolean tooFar = limitsValid && MAX_SHOOT_DISTANCE_INCHES > 0
+                && targetDistanceInches > MAX_SHOOT_DISTANCE_INCHES;
+
+        // The flywheel may remain spinning, but no balls may feed outside the range.
+        // Also preserve the turret's existing firing interlock.
+        boolean canFire = !tooClose && !tooFar && turret.canShoot();
+        if (!canFire) {
+            shotSequence.cancel();
+        }
         shotSequence.update(
-                shotSequence.isTriggerPressed(
+                canFire && shotSequence.isTriggerPressed(
                         gamepad1.right_trigger,
                         gamepad2.right_trigger
                 )
         );
 
-        boolean limitsValid = Double.isFinite(MIN_SHOOT_DISTANCE_INCHES)
-                && Double.isFinite(MAX_SHOOT_DISTANCE_INCHES)
-                && MIN_SHOOT_DISTANCE_INCHES >= 0 && MAX_SHOOT_DISTANCE_INCHES >= 0
-                && (MIN_SHOOT_DISTANCE_INCHES == 0 || MAX_SHOOT_DISTANCE_INCHES == 0
-                    || MIN_SHOOT_DISTANCE_INCHES <= MAX_SHOOT_DISTANCE_INCHES);
-        boolean tooClose = limitsValid && MIN_SHOOT_DISTANCE_INCHES > 0
-                && targetDistanceInches < MIN_SHOOT_DISTANCE_INCHES;
-        boolean tooFar = limitsValid && MAX_SHOOT_DISTANCE_INCHES > 0
-                && targetDistanceInches > MAX_SHOOT_DISTANCE_INCHES;
         boolean firingRequested = shotSequence.isTriggerPressed(
-                gamepad1.right_trigger, gamepad2.right_trigger);
+                gamepad1.right_trigger, gamepad2.right_trigger) && !tooFar && !tooClose;
         leds.setShootRangeWarning(SHOOT_RANGE_WARNINGS_ENABLED && (tooClose || tooFar)
                 && (!SHOOT_RANGE_WARNING_ONLY_WHILE_AIMING_OR_FIRING
-                    || aimRequested || firingRequested || shotSequence.isActive()));
+                || aimRequested || firingRequested || shotSequence.isActive()));
         String shootingRangeStatus = !SHOOT_RANGE_WARNINGS_ENABLED ? "DISABLED"
                 : !limitsValid ? "INVALID LIMITS"
                 : MIN_SHOOT_DISTANCE_INCHES == 0 && MAX_SHOOT_DISTANCE_INCHES == 0 ? "SET MIN/MAX LIMITS"
@@ -572,8 +577,8 @@ public class Pickles2026Teleop extends NextFTCOpMode {
     }
 
     private static ShotSettings calculateShotSettings(Pose pose) {
-        double nominalX = pose.getY() > SHOOT_TARGET_Y_SPLIT
-                ? SHOOT_TARGET_X_ABOVE_SPLIT : SHOOT_TARGET_X;
+        // Always aim at X = 58, regardless of the robot's X position.
+        double nominalX = SHOOT_TARGET_X;
         double nominalY = pose.getY() > SHOOT_TARGET_Y_SPLIT
                 ? SHOOT_TARGET_Y_ABOVE_SPLIT : SHOOT_TARGET_Y;
         double distance = Math.hypot(nominalX - pose.getX(), nominalY - pose.getY());
@@ -613,7 +618,7 @@ public class Pickles2026Teleop extends NextFTCOpMode {
                      ShotCalibrationTable2026.Solution table, String source) {
             this.nominalX = nominalX;
             this.nominalY = nominalY;
-            aimX = nominalX + (table == null ? 0 : table.deltaAimX);
+            aimX = nominalX; // Keep X fixed even when shot-table calibration is enabled.
             aimY = nominalY + (table == null ? 0 : table.deltaAimY);
             distanceInches = distance;
             this.baseRpm = baseRpm;
@@ -637,12 +642,12 @@ public class Pickles2026Teleop extends NextFTCOpMode {
         automaticTurnRawPower = USE_PEDRO_AIM_PIDF
                 ? headingTurnController.calculatePedro(pose, targetHeadingRadians)
                 : HeadingTurnController2026.calculateCustom(
-                        headingErrorRadians,
-                        angularVelocityRadiansPerSecond,
-                        proportionalGainPerDegree,
-                        AIM_TURN_KD_PER_DEGREE_PER_SECOND,
-                        AUTO_TURN_TOLERANCE_DEGREES
-                );
+                headingErrorRadians,
+                angularVelocityRadiansPerSecond,
+                proportionalGainPerDegree,
+                AIM_TURN_KD_PER_DEGREE_PER_SECOND,
+                AUTO_TURN_TOLERANCE_DEGREES
+        );
         return HeadingTurnController2026.applyCompensationAndLimits(
                 automaticTurnRawPower,
                 headingErrorRadians,
