@@ -4,6 +4,7 @@ import com.bylazar.configurables.annotations.Configurable;
 import com.pedropathing.follower.Follower;
 import com.pedropathing.geometry.Pose;
 import com.qualcomm.robotcore.eventloop.opmode.Autonomous;
+import com.qualcomm.robotcore.eventloop.opmode.Disabled;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.hardware.DcMotor;
 import com.qualcomm.robotcore.hardware.DcMotorEx;
@@ -19,6 +20,7 @@ import org.firstinspires.ftc.teamcode.GlobalRobotData;
  * <p>Pedro updates the Pinpoint pose for telemetry and the TeleOp handoff, but
  * the four drive motors receive direct, equal power for a fixed duration.</p>
  */
+@Disabled
 @Configurable
 @Autonomous(name = "Emergency Reverse 2 Seconds", group = "Comp")
 public class EmergencyForwardAuto extends LinearOpMode {

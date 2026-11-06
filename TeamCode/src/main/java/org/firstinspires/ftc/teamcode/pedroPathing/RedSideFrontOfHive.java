@@ -7,6 +7,7 @@ import com.pedropathing.geometry.Pose;
 import com.pedropathing.paths.Path;
 import com.pedropathing.paths.PathChain;
 import com.qualcomm.robotcore.eventloop.opmode.Autonomous;
+import com.qualcomm.robotcore.eventloop.opmode.Disabled;
 
 import org.firstinspires.ftc.teamcode.GlobalRobotData;
 import org.firstinspires.ftc.teamcode.subsystems.FlowerIntakeSubsystem2026;
@@ -33,6 +34,7 @@ import dev.nextftc.ftc.components.BulkReadComponent;
  * <p>The generated Pedro poses and paths stay in this file. Replace the
  * clearly marked placeholder sections with output from the path visualizer.</p>
  */
+@Disabled
 @Configurable
 @Autonomous(name = "Red Side Front Of Hive", group = "Comp")
 public class RedSideFrontOfHive extends NextFTCOpMode {

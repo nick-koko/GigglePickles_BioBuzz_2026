@@ -3,6 +3,7 @@ package org.firstinspires.ftc.teamcode.pedroPathing;
 import com.bylazar.configurables.annotations.Configurable;
 import com.bylazar.telemetry.PanelsTelemetry;
 import com.bylazar.telemetry.TelemetryManager;
+import com.qualcomm.robotcore.eventloop.opmode.Disabled;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 import com.qualcomm.robotcore.util.Range;
 
@@ -22,6 +23,7 @@ import dev.nextftc.ftc.components.BulkReadComponent;
  * Panels. This OpMode supplies the target and publishes graph-friendly control
  * loop diagnostics without initializing the drivetrain or intake.</p>
  */
+@Disabled
 @Configurable
 @TeleOp(name = "Shooter Tuning 2026", group = "Test")
 public class ShooterTuning2026 extends NextFTCOpMode {

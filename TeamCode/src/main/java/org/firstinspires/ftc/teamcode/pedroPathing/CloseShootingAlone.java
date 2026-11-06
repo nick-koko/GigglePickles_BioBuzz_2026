@@ -39,8 +39,8 @@ import dev.nextftc.ftc.components.BulkReadComponent;
  * clearly marked placeholder sections with output from the path visualizer.</p>
  */
 @Configurable
-@Autonomous(name = "Blue Side Front Of Hive Test", group = "Comp")
-public class BlueSideTest extends NextFTCOpMode {
+@Autonomous(name = "Start Close Alone Shooting ", group = "Comp")
+public class CloseShootingAlone extends NextFTCOpMode {
 
     public static double SHOOTER_FLYWHEEL_RPM_High = 3150.0;
     public static double SHOOTER_FLYWHEEL_RPM_Low = 3050.0;
@@ -71,12 +71,12 @@ public class BlueSideTest extends NextFTCOpMode {
     private final Pose farShootingSegment1End = poseFactory.of(35, 120, 270);
     private final Pose farShootingSegment2Start = poseFactory.of(35, 120, 270);
     private final Pose farShootingSegment2End = poseFactory.of(35, 120, 305);
-    private final Pose flowerfar = poseFactory.of(44.716, 128.8, 90);
+    private final Pose flowerfar = poseFactory.of(45.716, 128.8, 90);
     private final Pose flowerfarControl1 = poseFactory.of(46.8042, 101.17, 0);
-    private final Pose flowerfarSegment1Start = poseFactory.of(44.716, 128.8, 305);
-    private final Pose flowerfarSegment1End = poseFactory.of(44.716, 128.8, 90);
-    private final Pose flowerfarSegment2Start = poseFactory.of(44.716, 128.8, 90);
-    private final Pose flowerfarSegment2End = poseFactory.of(44.716, 128.8, 90);
+    private final Pose flowerfarSegment1Start = poseFactory.of(45.716, 128.8, 305);
+    private final Pose flowerfarSegment1End = poseFactory.of(45.716, 128.8, 90);
+    private final Pose flowerfarSegment2Start = poseFactory.of(45.716, 128.8, 90);
+    private final Pose flowerfarSegment2End = poseFactory.of(45.716, 128.8, 90);
     private final Pose farshooting2 = poseFactory.of(35, 120, -55);
     private final Pose farshooting2Control1 = poseFactory.of(43.4511, 114.4166, 0);
     private final Pose farshooting2Segment1Heading = poseFactory.of(35, 120, 90);
@@ -176,7 +176,7 @@ public class BlueSideTest extends NextFTCOpMode {
     private final ShotSequenceController2026 shotSequence =
             new ShotSequenceController2026();
 
-    public BlueSideTest() {
+    public CloseShootingAlone() {
         addComponents(
                 new PedroComponent(Constants::createFollower),
                 new SubsystemComponent(
@@ -319,6 +319,16 @@ public class BlueSideTest extends NextFTCOpMode {
             return this;
         }
 
+        private CompatiblePath tangent() {
+            setTangentHeadingInterpolation();
+            return this;
+        }
+
+        private CompatiblePath constant(Pose headingPose) {
+            setConstantHeadingInterpolation(headingPose.getHeading());
+            return this;
+        }
+
         private CompatiblePath heading(HeadingInterpolator interpolator) {
             setHeadingInterpolation(interpolator);
             return this;
@@ -336,6 +346,9 @@ public class BlueSideTest extends NextFTCOpMode {
      * Delete this class when upgrading to Pedro 3.
      */
     private static final class Interpolator {
+        // The visualizer writes both Interpolator.tangent and Interpolator.tangent().
+        private static final HeadingInterpolator tangent = HeadingInterpolator.tangent;
+
         private static HeadingInterpolator linear(Pose startPose, Pose endPose) {
             return HeadingInterpolator.linear(
                     startPose.getHeading(),
@@ -378,12 +391,23 @@ public class BlueSideTest extends NextFTCOpMode {
         }
     }
 
+    /** Lets visualizer exports that call Paths.curve()/Paths.line() paste in unchanged. */
+    private static final class Paths {
+        private static CompatiblePath curve(Pose... controlPoints) {
+            return new CompatiblePath(new BezierCurve(controlPoints));
+        }
+
+        private static CompatiblePath line(Pose startPose, Pose endPose) {
+            return new CompatiblePath(new BezierLine(startPose, endPose));
+        }
+    }
+
     private static CompatiblePath curve(Pose... controlPoints) {
-        return new CompatiblePath(new BezierCurve(controlPoints));
+        return Paths.curve(controlPoints);
     }
 
     private static CompatiblePath line(Pose startPose, Pose endPose) {
-        return new CompatiblePath(new BezierLine(startPose, endPose));
+        return Paths.line(startPose, endPose);
     }
 
     /**
