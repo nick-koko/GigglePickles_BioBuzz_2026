@@ -48,11 +48,11 @@ public class ShooterSubsystem2026 implements Subsystem {
      */
     public static double MOTOR_RPM_PER_FLYWHEEL_RPM = 1.0;
 
-    public static boolean ENABLE_VOLTAGE_COMPENSATION = false;
+    public static boolean ENABLE_VOLTAGE_COMPENSATION = true;
     public static double VOLTAGE_COMP_NOMINAL_V = 12.5;
     public static double VOLTAGE_COMP_FILTER_TAU_SEC = 0.5;
     public static double VOLTAGE_COMP_MIN_GAIN = 1.0;
-    public static double VOLTAGE_COMP_MAX_GAIN = 1.10;
+    public static double VOLTAGE_COMP_MAX_GAIN = 1.05; // Conservative initial cap; tune after logging RPM
     public static double VOLTAGE_COMP_MIN_VALID_V = 7.0;
 
     private DcMotorEx shooterMotor;
@@ -199,8 +199,20 @@ public class ShooterSubsystem2026 implements Subsystem {
                 + lastVelocityFeedforward
                 + lastAccelerationFeedforward;
 
-        double requestedOutput = Range.clip(
+        // Voltage compensation belongs on feedforward (the estimated motor power),
+        // NOT on the PID feedback terms. Keep the target RPM unchanged.
+        lastVoltageCompGain = computeVoltageCompGain();
+        double compensatedFeedforward = lastFeedforward * lastVoltageCompGain;
+
+        // Telemetry: estimated output without voltage compensation.
+        lastOutputBeforeVoltageComp = Range.clip(
                 lastPTerm + lastITerm + lastDTerm + lastFeedforward,
+                0.0,
+                1.0
+        );
+
+        double requestedOutput = Range.clip(
+                lastPTerm + lastITerm + lastDTerm + compensatedFeedforward,
                 0.0,
                 1.0
         );
@@ -213,28 +225,21 @@ public class ShooterSubsystem2026 implements Subsystem {
         }
         lastOutputBeforeSlew = requestedOutput;
 
+        // Limit the ACTUAL commanded motor power, after voltage compensation.
         double maxStep = Math.max(0.0, SLEW_PER_SECOND) * dt;
-        double outputAfterSlew;
+        double finalOutput;
         if (lastPowerOverrideActive && powerOverrideBypassesSlew) {
-            outputAfterSlew = requestedOutput;
+            finalOutput = requestedOutput;
         } else {
-            outputAfterSlew = Range.clip(
+            finalOutput = Range.clip(
                     requestedOutput,
                     lastAppliedPower - maxStep,
                     lastAppliedPower + maxStep
             );
         }
-        outputAfterSlew = Range.clip(outputAfterSlew, 0.0, 1.0);
-        lastSlewLimited = Math.abs(outputAfterSlew - requestedOutput) > 1e-9;
-        lastOutputAfterSlew = outputAfterSlew;
-        lastOutputBeforeVoltageComp = outputAfterSlew;
-
-        lastVoltageCompGain = computeVoltageCompGain();
-        double finalOutput = Range.clip(
-                outputAfterSlew * lastVoltageCompGain,
-                0.0,
-                1.0
-        );
+        finalOutput = Range.clip(finalOutput, 0.0, 1.0);
+        lastSlewLimited = Math.abs(finalOutput - requestedOutput) > 1e-9;
+        lastOutputAfterSlew = finalOutput;
         lastCommandSaturated = finalOutput >= 0.999;
         applyPower(finalOutput);
 
