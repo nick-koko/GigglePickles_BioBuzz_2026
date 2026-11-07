@@ -10,6 +10,7 @@ import com.pedropathing.paths.PathChain;
 import com.qualcomm.robotcore.eventloop.opmode.Autonomous;
 
 import org.firstinspires.ftc.teamcode.GlobalRobotData;
+import org.firstinspires.ftc.teamcode.subsystems.AutonomousShooterRpm2026;
 import org.firstinspires.ftc.teamcode.subsystems.FlowerIntakeSubsystem2026;
 import org.firstinspires.ftc.teamcode.subsystems.IntakeWithSensorsSubsystem2026;
 import org.firstinspires.ftc.teamcode.subsystems.LEDControlSubsystem2026;
@@ -50,8 +51,13 @@ import dev.nextftc.ftc.components.BulkReadComponent;
 @Autonomous(name = "Start Close With Partner", group = "Comp")
 public class CloseWithPartner extends NextFTCOpMode {
 
-    public static double SHOOTER_FLYWHEEL_RPM_High = 3200.0;
-    public static double SHOOTER_FLYWHEEL_RPM_Low = 3150.0;
+    // False preserves the tested fixed targets. True follows TeleOp's live regression/targets.
+    public static boolean USE_DISTANCE_BASED_RPM = false;
+    // Hold Low RPM through preload spin-up and the full first volley, even in regression mode.
+    public static boolean USE_FIRST_SHOT_LOW_RPM_OVERRIDE = true;
+
+    public static double SHOOTER_FLYWHEEL_RPM_High = AutonomousShooterRpm2026.DEFAULT_HIGH_RPM;
+    public static double SHOOTER_FLYWHEEL_RPM_Low = AutonomousShooterRpm2026.DEFAULT_LOW_RPM;
     public static double SHOOTER_SPINUP_SECONDS = 2.0;
     public static double FLOWERY_WAIT_SECONDS = 1.0;
     public static double GARDEN_SLOW_START = 0.75;
@@ -225,6 +231,7 @@ public class CloseWithPartner extends NextFTCOpMode {
     private long stageStartNanos;
     private final ShotSequenceController2026 shotSequence =
             new ShotSequenceController2026();
+    private final AutonomousShooterRpm2026 shooterRpm = new AutonomousShooterRpm2026();
 
     public CloseWithPartner() {
         addComponents(
@@ -242,6 +249,7 @@ public class CloseWithPartner extends NextFTCOpMode {
 
     @Override
     public void onInit() {
+        shooterRpm.reset(SHOOTER_FLYWHEEL_RPM_Low, USE_FIRST_SHOT_LOW_RPM_OVERRIDE);
         TurretSubsystem2026.INSTANCE.prepareAutonomous();
         autonStarted = false;
         helpShootFar = true;
@@ -486,8 +494,11 @@ public class CloseWithPartner extends NextFTCOpMode {
         return new SequentialGroup(
                 enterStage(AutonStage.SPIN_UP),
                 new InstantCommand(() ->
-                        ShooterSubsystem2026.INSTANCE.spinUp(
-                                SHOOTER_FLYWHEEL_RPM_Low
+                        shooterRpm.start(
+                                SHOOTER_FLYWHEEL_RPM_Low,
+                                USE_DISTANCE_BASED_RPM,
+                                PedroComponent.follower().getPose(),
+                                USE_FIRST_SHOT_LOW_RPM_OVERRIDE
                         )
                 ),
                 new ParallelGroup(
@@ -496,9 +507,10 @@ public class CloseWithPartner extends NextFTCOpMode {
                 ),
                 enterStage(AutonStage.SHOOT_PRELOADS),
                 shoot(),
+                new InstantCommand(shooterRpm::finishFirstVolley),
                 new InstantCommand(() -> firstVolleyDoneNanos = System.nanoTime()),
                 new InstantCommand(() ->
-                        ShooterSubsystem2026.INSTANCE.spinUp(
+                        startShooter(
                                 SHOOTER_FLYWHEEL_RPM_High
                         )
                 )
@@ -635,6 +647,10 @@ public class CloseWithPartner extends NextFTCOpMode {
                 ? 0.0 : (System.nanoTime() - startPressedNanos) / 1e9;
     }
 
+    private void startShooter(double fixedRpm) {
+        shooterRpm.start(fixedRpm, USE_DISTANCE_BASED_RPM, PedroComponent.follower().getPose());
+    }
+
     private Command enterStage(AutonStage stage) {
         return new InstantCommand(() -> {
             // This indicates command progression, not verified physical arrival.
@@ -700,6 +716,7 @@ public class CloseWithPartner extends NextFTCOpMode {
 
         TurretSubsystem2026.INSTANCE.addTelemetry(telemetry);
         Pose pose = PedroComponent.follower().getPose();
+        shooterRpm.addTelemetry(telemetry, USE_DISTANCE_BASED_RPM, pose);
         addPlanTelemetry();
         addStageTelemetry();
         telemetry.addData("Spin-up delay", "%.2f sec", SHOOTER_SPINUP_SECONDS);
@@ -731,9 +748,10 @@ public class CloseWithPartner extends NextFTCOpMode {
     public void onUpdate() {
         TurretSubsystem2026.INSTANCE.addTelemetry(telemetry);
         // The shared controller owns feed timing and the timed shooter boost.
-        shotSequence.update();
-
         Pose pose = PedroComponent.follower().getPose();
+        shooterRpm.update(USE_DISTANCE_BASED_RPM, pose);
+        shotSequence.update();
+        shooterRpm.addTelemetry(telemetry, USE_DISTANCE_BASED_RPM, pose);
 
         addPlanTelemetry();
         addStageTelemetry();

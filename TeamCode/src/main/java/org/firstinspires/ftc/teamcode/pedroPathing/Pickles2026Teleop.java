@@ -581,7 +581,7 @@ public class Pickles2026Teleop extends NextFTCOpMode {
         double nominalX = SHOOT_TARGET_X;
         double nominalY = pose.getY() > SHOOT_TARGET_Y_SPLIT
                 ? SHOOT_TARGET_Y_ABOVE_SPLIT : SHOOT_TARGET_Y;
-        double distance = Math.hypot(nominalX - pose.getX(), nominalY - pose.getY());
+        double distance = regressionDistanceInches(pose.getX(), pose.getY());
         ShotCalibrationTable2026.Solution table = USE_SHOT_TABLE
                 ? ShotCalibrationTable2026.lookup(pose.getX(), pose.getY()) : null;
         double baseRpm = table == null ? calculateShooterRpmForDistance(distance) : table.flywheelRpm;
@@ -630,6 +630,17 @@ public class Pickles2026Teleop extends NextFTCOpMode {
 
     private static double calculateShooterRpmForDistance(double distanceInches) {
         return REGRESSION_RPM_PER_INCH * distanceInches + REGRESSION_RPM_INTERCEPT;
+    }
+
+    /** Shared nominal-target distance for TeleOp and the optional autonomous regression. */
+    public static double regressionDistanceInches(double robotX, double robotY) {
+        double targetY = robotY > SHOOT_TARGET_Y_SPLIT ? SHOOT_TARGET_Y_ABOVE_SPLIT : SHOOT_TARGET_Y;
+        return Math.hypot(SHOOT_TARGET_X - robotX, targetY - robotY);
+    }
+
+    /** Uses the live TeleOp equation/targets, without shot-table data or operator RPM trim. */
+    public static double regressionFlywheelRpm(double robotX, double robotY) {
+        return calculateShooterRpmForDistance(regressionDistanceInches(robotX, robotY));
     }
 
     private double calculateAutomaticTurn(
