@@ -41,13 +41,14 @@ public class Pickles2026Teleop extends NextFTCOpMode {
     // GP2 D-pad adjusts this additive trim in either regression or table mode.
     public static double SHOOTER_RPM_TRIM = 0.0;
     public static boolean USE_SHOT_TABLE = false;
-    public static double REGRESSION_RPM_PER_INCH = 16.2; //26.5
+    public static double REGRESSION_RPM_PER_INCH = 16.; //26.5
     public static double REGRESSION_RPM_INTERCEPT = 2410; //2015
     // Shows only the values needed while tuning shots on the Driver Station.
     public static boolean SHOT_TUNING_TELEMETRY_ONLY = false;
 
-    // Fixed X aim for all robot positions; Y target still switches by Y position.
-    public static double SHOOT_TARGET_X = 58.0;
+    // Target X switches when robot passes goal X; Y still switches by Y position.
+    public static double SHOOT_TARGET_X = 59.5;
+    public static double SHOOT_TARGET_X_AFTER = 56.5;
     public static double SHOOT_TARGET_Y = 60.0;
     public static double SHOOT_TARGET_Y_SPLIT = 72.0;
     public static double SHOOT_TARGET_Y_ABOVE_SPLIT = 84.0;
@@ -55,7 +56,7 @@ public class Pickles2026Teleop extends NextFTCOpMode {
 
     // TODO: enter the measured limits. Zero disables that bound; units are inches
     // from the robot's Pedro pose to the currently selected shooting target.
-    public static double MIN_SHOOT_DISTANCE_INCHES = 37.7;
+    public static double MIN_SHOOT_DISTANCE_INCHES = 32;
     public static double MAX_SHOOT_DISTANCE_INCHES = 70.0;
     public static boolean SHOOT_RANGE_WARNINGS_ENABLED = true;
     // Keeps ball-count LEDs visible while collecting. False warns anywhere out of range.
@@ -577,8 +578,10 @@ public class Pickles2026Teleop extends NextFTCOpMode {
     }
 
     private static ShotSettings calculateShotSettings(Pose pose) {
-        // Always aim at X = 58, regardless of the robot's X position.
-        double nominalX = SHOOT_TARGET_X;
+        // Aim at X = 56 when robot X exceeds the standard goal X of 60.
+        double nominalX = pose.getX() > SHOOT_TARGET_X
+                ? SHOOT_TARGET_X_AFTER
+                : SHOOT_TARGET_X;
         double nominalY = pose.getY() > SHOOT_TARGET_Y_SPLIT
                 ? SHOOT_TARGET_Y_ABOVE_SPLIT : SHOOT_TARGET_Y;
         double distance = Math.hypot(nominalX - pose.getX(), nominalY - pose.getY());
@@ -618,7 +621,7 @@ public class Pickles2026Teleop extends NextFTCOpMode {
                      ShotCalibrationTable2026.Solution table, String source) {
             this.nominalX = nominalX;
             this.nominalY = nominalY;
-            aimX = nominalX; // Keep X fixed even when shot-table calibration is enabled.
+            aimX = nominalX; // Keep the selected X aim even when shot-table calibration is enabled.
             aimY = nominalY + (table == null ? 0 : table.deltaAimY);
             distanceInches = distance;
             this.baseRpm = baseRpm;

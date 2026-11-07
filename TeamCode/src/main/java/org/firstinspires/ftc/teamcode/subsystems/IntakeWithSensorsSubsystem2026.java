@@ -41,7 +41,7 @@ public class IntakeWithSensorsSubsystem2026 implements Subsystem {
     public static double TRANSFER_FORWARD_RPM = 4000.0;
     public static double INTAKE_REVERSE_RPM = 3000.0;
     public static double TRANSFER_REVERSE_RPM = 1000.0;
-    public static double SHOOT_INTAKE_POWER = 0.4;
+    public static double SHOOT_INTAKE_POWER = 0.5;
     public static double SHOOT_TRANSFER_POWER = 0.5;
     public static boolean ENABLE_BALL_TRACKING = true;
 
