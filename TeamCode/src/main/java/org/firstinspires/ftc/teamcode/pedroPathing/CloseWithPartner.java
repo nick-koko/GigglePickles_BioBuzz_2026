@@ -60,6 +60,8 @@ public class CloseWithPartner extends NextFTCOpMode {
     public static double SHOOTER_FLYWHEEL_RPM_Low = AutonomousShooterRpm2026.DEFAULT_LOW_RPM;
     public static double SHOOTER_SPINUP_SECONDS = 2.0;
     public static double FLOWERY_WAIT_SECONDS = 1.0;
+    // Maximum time for either full garden approach; the collection wait still follows.
+    public static double GARDEN_APPROACH_TIMEOUT_SECONDS = 2.0;
     public static double GARDEN_SLOW_START = 0.75;
     public static double GARDEN_SLOW_POWER = 0.40;
 
@@ -544,7 +546,7 @@ public class CloseWithPartner extends NextFTCOpMode {
                 collectFromGarden(gardenintakeFromFarPath),
                 enterStage(AutonStage.DRIVE_TO_SHOOT),
                 new FollowPath(closeshoot2Path),
-                new Delay(0.75),
+                new Delay(4.75),
                 enterStage(AutonStage.SHOOT),
                 shoot(),
                 parkFrom(parkingPath)
@@ -607,7 +609,8 @@ public class CloseWithPartner extends NextFTCOpMode {
         return new SequentialGroup(
                 enterStage(AutonStage.DRIVE_TO_GARDEN),
                 new ParallelGroup(
-                        new FollowPath(approachPath),
+                        // Keep trying during the collection wait if the corner is blocked.
+                        new FollowPath(approachPath).endAfter(GARDEN_APPROACH_TIMEOUT_SECONDS),
                         new InstantCommand(() ->
                                 IntakeWithSensorsSubsystem2026.INSTANCE.intakeForward())
                 ),

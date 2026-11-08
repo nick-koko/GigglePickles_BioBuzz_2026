@@ -40,7 +40,7 @@ public class IntakeWithSensorsSubsystem2026 implements Subsystem {
     public static double INTAKE_FORWARD_RPM = 4000.0;
     public static double TRANSFER_FORWARD_RPM = 4000.0;
     public static double INTAKE_REVERSE_RPM = 3000.0;
-    public static double TRANSFER_REVERSE_RPM = 1000.0;
+    public static double TRANSFER_REVERSE_RPM = 700.0;
     public static double SHOOT_INTAKE_POWER = 0.5;
     public static double SHOOT_TRANSFER_POWER = 0.5;
     public static boolean ENABLE_BALL_TRACKING = true;
@@ -268,7 +268,7 @@ public class IntakeWithSensorsSubsystem2026 implements Subsystem {
 
         if (jamReversing) {
             appliedIntakeRpm = -positiveRpm(INTAKE_REVERSE_RPM);
-            appliedTransferRpm = positiveRpm(TRANSFER_FORWARD_RPM);
+            appliedTransferRpm = -positiveRpm(TRANSFER_REVERSE_RPM);
             setMotorVelocities(appliedIntakeRpm, appliedTransferRpm);
         } else if (feedingToShooter) {
             appliedIntakePower = clippedPower(SHOOT_INTAKE_POWER);

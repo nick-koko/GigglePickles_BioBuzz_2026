@@ -41,8 +41,8 @@ public class Pickles2026Teleop extends NextFTCOpMode {
     // GP2 D-pad adjusts this additive trim in either regression or table mode.
     public static double SHOOTER_RPM_TRIM = 0.0;
     public static boolean USE_SHOT_TABLE = false;
-    public static double REGRESSION_RPM_PER_INCH = 16.; //26.5
-    public static double REGRESSION_RPM_INTERCEPT = 2410; //2015
+    public static double REGRESSION_RPM_PER_INCH = 16.25; //16.5? -> Change to if we start missing low.
+    public static double REGRESSION_RPM_INTERCEPT = 2415; //2015
     // Shows only the values needed while tuning shots on the Driver Station.
     public static boolean SHOT_TUNING_TELEMETRY_ONLY = false;
 
@@ -84,7 +84,7 @@ public class Pickles2026Teleop extends NextFTCOpMode {
     public static double DPAD_DOWN_HEADING_DEGREES = 180.0;
     public static double DPAD_RIGHT_HEADING_DEGREES = -90.0;
 
-    private Pose startingPose;
+    private Pose startingPose, resetPose;
     private boolean selectAllianceSide;
     private boolean startedFromAuton;
     private HeadingTurnController2026 headingTurnController;
@@ -120,6 +120,7 @@ public class Pickles2026Teleop extends NextFTCOpMode {
         IntakeWithSensorsSubsystem2026.INSTANCE.stopAll();
         ShooterSubsystem2026.INSTANCE.stop();
         shotSequence.reset();
+        resetPose = new Pose(8.5, 57.15, Math.toRadians(0));
 
         startedFromAuton =
                 GlobalRobotData.hasAutonRun && GlobalRobotData.endAutonPose != null;
@@ -243,7 +244,9 @@ public class Pickles2026Teleop extends NextFTCOpMode {
         else {
             flower.moveUp();
         }
-
+        if (gamepad2.startWasPressed()) {
+            PedroComponent.follower().setPose(resetPose);
+        }
         double drive = -gamepad1.left_stick_y * DRIVE_POWER;
         double strafe = -gamepad1.left_stick_x * DRIVE_POWER;
         double turn = -gamepad1.right_stick_x * TURN_POWER;

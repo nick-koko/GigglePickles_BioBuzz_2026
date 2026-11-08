@@ -52,6 +52,8 @@ public class CloseShootingAlone extends NextFTCOpMode {
     public static double SHOOTER_FLYWHEEL_RPM_Low = AutonomousShooterRpm2026.DEFAULT_LOW_RPM;
     public static double SHOOTER_SPINUP_SECONDS = 2.0;
     public static double FLOWERY_WAIT_SECONDS = 1.0;
+    // Maximum time for the full garden approach; the collection wait still follows.
+    public static double GARDEN_APPROACH_TIMEOUT_SECONDS = 3.5;
     public static double GARDEN_SLOW_START = 0.75;
     public static double GARDEN_SLOW_POWER = 0.40;
 
@@ -615,7 +617,9 @@ public class CloseShootingAlone extends NextFTCOpMode {
                 new WaitUntil(() -> !shotSequence.isActive()),
 
                 new ParallelGroup(
-                        pathFollowingToGardenIntake(),
+                        // Advance even if a nectar ball blocks the corner. The follower
+                        // may keep trying during the collection wait until the next path.
+                        pathFollowingToGardenIntake().endAfter(GARDEN_APPROACH_TIMEOUT_SECONDS),
                         new InstantCommand(() ->
                             IntakeWithSensorsSubsystem2026.INSTANCE.intakeForward())
                 ),

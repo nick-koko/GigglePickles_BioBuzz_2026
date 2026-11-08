@@ -58,6 +58,8 @@ public class FarWithPartner extends NextFTCOpMode {
     public static double SHOOTER_FLYWHEEL_RPM = AutonomousShooterRpm2026.DEFAULT_HIGH_RPM;
     public static double SHOOTER_SPINUP_SECONDS = 2.0;
     public static double FLOWERY_WAIT_SECONDS = 1.0;
+    // Maximum time for the full approach, including throughHive; collection wait follows.
+    public static double GARDEN_APPROACH_TIMEOUT_SECONDS = 2.5;
     public static double GARDEN_SLOW_START = 0.75;
     public static double GARDEN_SLOW_POWER = 0.40;
 
@@ -82,7 +84,7 @@ public class FarWithPartner extends NextFTCOpMode {
     // -------------------------------------------------------------------------
     private final PoseFactory poseFactory = PoseFactory.degrees();
 
-    private final Pose start = poseFactory.of(61.42, 136, 270);
+    private final Pose start = poseFactory.of(63.0, 133.0, 270);
     private final Pose farShootingFromStart = poseFactory.of(35, 120, 305);
     private final Pose farShootingFromStartControl1 = poseFactory.of(61.42, 112, 0);
     private final Pose farShootingFromStartControl2 = poseFactory.of(45, 112, 0);
@@ -97,13 +99,12 @@ public class FarWithPartner extends NextFTCOpMode {
     private final Pose farshooting2Segment1Heading = poseFactory.of(35, 120, 90);
     private final Pose farshooting2Segment2Start = poseFactory.of(35, 120, 90);
     private final Pose farshooting2Segment2End = poseFactory.of(35, 120, 305);
-    private final Pose throughHive = poseFactory.of(59.3063, 35.3987, -104.6766);
+    private final Pose throughHive = poseFactory.of(59.3063, 35.3987, -85.4698);
     private final Pose throughHiveControl1 = poseFactory.of(68.3998, 120.9034, 0);
-    private final Pose throughHiveControl2 = poseFactory.of(62.9121, 49.1664, 0);
+    private final Pose throughHiveControl2 = poseFactory.of(58.2524, 48.7004, 0);
     private final Pose gardenFromHive = poseFactory.of(8, 6, 180);
     private final Pose gardenFromHiveControl1 = poseFactory.of(56.5104, 23.6309, 0);
-    private final Pose gardenFromHiveControl2 = poseFactory.of(25.2146, 10.6622, 0);
-    // Starts at throughHive's ending tangent heading so there is no snap.
+    private final Pose gardenFromHiveControl2 = poseFactory.of(25.7582, 12.4484, 0);
     private final Pose gardenFromHiveSegment1Start = poseFactory.of(8, 6, -104.6766);
     private final Pose gardenFromHiveSegment1End = poseFactory.of(8, 6, 220);
     private final Pose gardenFromHiveSegment2Start = poseFactory.of(8, 6, 220);
@@ -585,7 +586,8 @@ public class FarWithPartner extends NextFTCOpMode {
         return new SequentialGroup(
                 enterStage(AutonStage.DRIVE_TO_GARDEN),
                 new ParallelGroup(
-                        new FollowPath(approachPath),
+                        // Keep trying during the collection wait if the corner is blocked.
+                        new FollowPath(approachPath).endAfter(GARDEN_APPROACH_TIMEOUT_SECONDS),
                         new InstantCommand(() ->
                                 IntakeWithSensorsSubsystem2026.INSTANCE.intakeForward())
                 ),

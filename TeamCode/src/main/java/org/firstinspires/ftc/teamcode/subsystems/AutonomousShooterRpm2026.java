@@ -6,7 +6,7 @@ import org.firstinspires.ftc.teamcode.pedroPathing.Pickles2026Teleop;
 
 /** Chooses autonomous RPM without owning paths, feed timing, boost, or shooter stop commands. */
 public final class AutonomousShooterRpm2026 {
-    public static final double DEFAULT_LOW_RPM = 3050.0;
+    public static final double DEFAULT_LOW_RPM = 2950.0;
     public static final double DEFAULT_HIGH_RPM = 3150.0;
 
     private double fixedRpm;

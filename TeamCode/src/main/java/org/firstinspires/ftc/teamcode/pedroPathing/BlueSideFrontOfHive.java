@@ -44,7 +44,7 @@ import dev.nextftc.ftc.components.BulkReadComponent;
 @Autonomous(name = "Blue Side Front Of Hive", group = "Comp")
 public class BlueSideFrontOfHive extends NextFTCOpMode {
 
-    public static double SHOOTER_FLYWHEEL_RPM = 3200.0;
+    public static double SHOOTER_FLYWHEEL_RPM = 3100.0;
     public static double SHOOTER_SPINUP_SECONDS = 2.0;
     public static double FLOWERY_WAIT_SECONDS = 1.0;
 
