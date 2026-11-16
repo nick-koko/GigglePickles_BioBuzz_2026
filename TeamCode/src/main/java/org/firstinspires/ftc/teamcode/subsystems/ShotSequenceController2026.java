@@ -29,6 +29,8 @@ public final class ShotSequenceController2026 {
     private long sequenceStartNanos;
     private int sequenceCount;
     private double elapsedSeconds;
+    private int startBallCount, startBeamMask;
+    private String endReason = "";
 
     // Snapshot configuration at sequence start so a live Panels edit cannot
     // change the timing halfway through a shot.
@@ -49,6 +51,8 @@ public final class ShotSequenceController2026 {
         sequenceStartNanos = 0L;
         sequenceCount = 0;
         elapsedSeconds = 0.0;
+        startBallCount = startBeamMask = 0;
+        endReason = "";
         stopSequenceOutputs();
     }
 
@@ -104,6 +108,7 @@ public final class ShotSequenceController2026 {
         if (elapsedSeconds >= activeFeedSeconds) {
             elapsedSeconds = activeFeedSeconds;
             active = false;
+            endReason = "FEED_TIMER_COMPLETE";
             completedThisUpdate = true;
             requireTriggerRelease = shootRequestStillHeld;
             stopSequenceOutputs();
@@ -133,6 +138,7 @@ public final class ShotSequenceController2026 {
      * changed. RT must be released before another sequence can begin.
      */
     public void cancel() {
+        if (active) endReason = "CANCELLED";
         active = false;
         boostActive = false;
         requireTriggerRelease = true;
@@ -140,6 +146,9 @@ public final class ShotSequenceController2026 {
     }
 
     private void startSequence() {
+        startBallCount = IntakeWithSensorsSubsystem2026.INSTANCE.getBallCount();
+        startBeamMask = IntakeWithSensorsSubsystem2026.INSTANCE.getCachedBeamMask();
+        endReason = "";
         activeFeedSeconds = Math.max(0.0, FEED_SECONDS);
         activeBoostEnabled = ENABLE_TIMED_BOOST;
         activeBoostDelaySeconds = Math.max(0.0, BOOST_DELAY_SECONDS);
@@ -192,6 +201,11 @@ public final class ShotSequenceController2026 {
     public int getSequenceCount() {
         return sequenceCount;
     }
+
+    public int getStartBallCount() { return startBallCount; }
+    public int getStartBeamMask() { return startBeamMask; }
+    public long getSequenceStartNanos() { return sequenceStartNanos; }
+    public String getEndReason() { return endReason; }
 
     public double getElapsedSeconds() {
         return elapsedSeconds;

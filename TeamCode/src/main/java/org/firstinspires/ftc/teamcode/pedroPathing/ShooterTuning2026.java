@@ -8,6 +8,7 @@ import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 import com.qualcomm.robotcore.util.Range;
 
 import org.firstinspires.ftc.teamcode.subsystems.IntakeWithSensorsSubsystem2026;
+import org.firstinspires.ftc.teamcode.logging.RobotLogging2026;
 import org.firstinspires.ftc.teamcode.subsystems.LEDControlSubsystem2026;
 import org.firstinspires.ftc.teamcode.subsystems.ShotSequenceController2026;
 import org.firstinspires.ftc.teamcode.subsystems.ShooterSubsystem2026;
@@ -40,6 +41,7 @@ public class ShooterTuning2026 extends NextFTCOpMode {
     private TelemetryManager panelsTelemetry;
     private final ShotSequenceController2026 shotSequence =
             new ShotSequenceController2026();
+    private final RobotLogging2026 logging = new RobotLogging2026();
     private int completedShotSequenceCount;
     private boolean rpmDropThresholdDetected;
     private double rpmDropDetectedAtSeconds = -1.0;
@@ -129,6 +131,7 @@ public class ShooterTuning2026 extends NextFTCOpMode {
         IntakeWithSensorsSubsystem2026.INSTANCE.stopAll();
         resetAutomaticShotMeasurement();
         resetFeedDropMeasurement();
+        logging.start(getClass().getSimpleName(), "TUNING", shotSequence, false);
     }
 
     @Override
@@ -190,12 +193,16 @@ public class ShooterTuning2026 extends NextFTCOpMode {
 
         updateFeedDropMeasurement(shooter, feeding);
         updateRecoveryMeasurement(shooter);
+        logging.setShotContext(Double.NaN, Double.NaN, false, shootButton, !stopWasPressed);
+        logging.update(null, null, "SHOOTER_TUNING", "BENCH", "MANUAL_TARGET");
+        logging.addTelemetry(telemetry);
         addTuningTelemetry(shooter, intake, feeding);
         panelsTelemetry.update(telemetry);
     }
 
     @Override
     public void onStop() {
+        logging.stop();
         shotSequence.cancel();
         IntakeWithSensorsSubsystem2026.INSTANCE.stopAll();
         ShooterSubsystem2026.INSTANCE.stop();

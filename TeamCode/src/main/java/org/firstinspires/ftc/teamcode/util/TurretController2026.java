@@ -342,6 +342,8 @@ public final class TurretController2026 {
     public boolean isAimReady() { return readyLoops >= config.readyLoops; }
     public boolean isTargetReachable() { return targetReachable; }
     public double getMeasuredAngle() { return measured; }
+    public int getCachedEncoderTicks() { return ticks; }
+    public double getCommandedAngle() { return commanded; }
     public double getVelocity() { return velocity; }
     public double getTarget() { return target; }
     public double getRawDegrees() { return raw; }

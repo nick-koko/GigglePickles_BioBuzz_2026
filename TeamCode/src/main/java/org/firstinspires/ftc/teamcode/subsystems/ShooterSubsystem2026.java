@@ -86,6 +86,8 @@ public class ShooterSubsystem2026 implements Subsystem {
     private double lastOutputBeforeSlew;
     private double lastOutputAfterSlew;
     private double lastOutputBeforeVoltageComp;
+    private double lastControllerOutputBeforeBoost;
+    private double lastOutputWithoutBoostThisLoop;
     private double lastAppliedPower;
     private boolean lastSlewLimited;
     private boolean lastCommandSaturated;
@@ -216,6 +218,12 @@ public class ShooterSubsystem2026 implements Subsystem {
                 0.0,
                 1.0
         );
+        lastControllerOutputBeforeBoost = requestedOutput;
+        // A same-loop comparison from the same previous actual output, not an
+        // independent simulation of how RPM would have evolved without boost.
+        double diagnosticMaxStep = Math.max(0.0, SLEW_PER_SECOND) * dt;
+        lastOutputWithoutBoostThisLoop = Range.clip(requestedOutput,
+                lastAppliedPower - diagnosticMaxStep, lastAppliedPower + diagnosticMaxStep);
         lastPowerOverrideActive = Double.isFinite(minimumPowerOverride);
         if (lastPowerOverrideActive) {
             requestedOutput = Math.max(
@@ -329,6 +337,8 @@ public class ShooterSubsystem2026 implements Subsystem {
         lastOutputBeforeSlew = 0.0;
         lastOutputAfterSlew = 0.0;
         lastOutputBeforeVoltageComp = 0.0;
+        lastControllerOutputBeforeBoost = 0.0;
+        lastOutputWithoutBoostThisLoop = 0.0;
         lastSlewLimited = false;
         lastCommandSaturated = false;
         lastPowerOverrideActive = false;
@@ -510,6 +520,18 @@ public class ShooterSubsystem2026 implements Subsystem {
 
     public double getAppliedPower() {
         return lastAppliedPower;
+    }
+
+    public long getControlSampleNanos() { return lastTimestampNanos; }
+    /** Target associated with the cached controller update, before a later OpMode request. */
+    public double getControllerTargetFlywheelRpm() { return lastTargetFlywheelRpm; }
+    public double getControllerOutputBeforeBoost() { return lastControllerOutputBeforeBoost; }
+    public double getOutputWithoutBoostThisLoop() { return lastOutputWithoutBoostThisLoop; }
+    public double getBoostRequestedPowerIncrease() {
+        return Math.max(0.0, lastOutputBeforeSlew - lastControllerOutputBeforeBoost);
+    }
+    public double getBoostAppliedPowerDifference() {
+        return lastAppliedPower - lastOutputWithoutBoostThisLoop;
     }
 
     public boolean wasSlewLimited() {

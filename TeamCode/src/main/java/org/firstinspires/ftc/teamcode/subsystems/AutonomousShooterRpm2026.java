@@ -67,12 +67,17 @@ public final class AutonomousShooterRpm2026 {
                 : Pickles2026Teleop.regressionFlywheelRpm(pose.getX(), pose.getY());
     }
 
-    public void addTelemetry(Telemetry telemetry, boolean useRegression, Pose pose) {
+    public String getMode(boolean useRegression, Pose pose) {
         double regression = regressionRpm(pose);
         boolean valid = Double.isFinite(regression) && regression > 0;
-        telemetry.addData("Auton RPM mode", !useRegression ? "FIXED"
+        return !useRegression ? "FIXED"
                 : firstVolleyOverride ? "FIRST VOLLEY LOW OVERRIDE"
-                : valid ? "TELEOP REGRESSION" : "FIXED FALLBACK (invalid pose/equation)");
+                : valid ? "TELEOP REGRESSION" : "FIXED FALLBACK (invalid pose/equation)";
+    }
+
+    public void addTelemetry(Telemetry telemetry, boolean useRegression, Pose pose) {
+        double regression = regressionRpm(pose);
+        telemetry.addData("Auton RPM mode", getMode(useRegression, pose));
         telemetry.addData("Auton fixed / regression RPM", "%.0f / %.0f", fixedRpm, regression);
         telemetry.addData("Auton selected RPM", "%.0f", selectedRpm(useRegression, pose));
         telemetry.addData("Regression distance", "%.2f in", pose == null ? Double.NaN
