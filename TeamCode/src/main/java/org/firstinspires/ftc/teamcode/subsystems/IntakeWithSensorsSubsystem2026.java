@@ -45,8 +45,8 @@ public class IntakeWithSensorsSubsystem2026 implements Subsystem {
     public static double SHOOT_TRANSFER_POWER = 0.5;
     public static boolean ENABLE_BALL_TRACKING = true;
 
-    public static double GATE_CLOSED_POSITION = 0.15;
-    public static double GATE_OPEN_POSITION = 0.35;
+    public static double GATE_CLOSED_POSITION = 0.45; //0.15
+    public static double GATE_OPEN_POSITION = 0.15; //0.35
 
     private static final double ENCODER_TICKS_PER_MOTOR_REV = 28.0;
     private static final double SHAFT_REDUCTION = 3.0;
