@@ -5,6 +5,7 @@ import com.pedropathing.geometry.Pose;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 
 import org.firstinspires.ftc.teamcode.GlobalRobotData;
+import org.firstinspires.ftc.teamcode.logging.RobotLogging2026;
 import org.firstinspires.ftc.teamcode.subsystems.FlowerIntakeSubsystem2026;
 import org.firstinspires.ftc.teamcode.subsystems.IntakeWithSensorsSubsystem2026;
 import org.firstinspires.ftc.teamcode.subsystems.LEDControlSubsystem2026;
@@ -96,6 +97,7 @@ public class Pickles2026Teleop extends NextFTCOpMode {
     private double automaticTurnRawPower;
     private final ShotSequenceController2026 shotSequence =
             new ShotSequenceController2026();
+    private final RobotLogging2026 logging = new RobotLogging2026();
 
     public Pickles2026Teleop() {
         addComponents(
@@ -211,6 +213,7 @@ public class Pickles2026Teleop extends NextFTCOpMode {
 
     @Override
     public void onStartButtonPressed() {
+        logging.start(getClass().getSimpleName(), "TELEOP", shotSequence, true);
         TurretSubsystem2026.INSTANCE.startTeleop();
         PedroComponent.follower().setStartingPose(startingPose);
         PedroComponent.follower().startTeleopDrive();
@@ -387,6 +390,11 @@ public class Pickles2026Teleop extends NextFTCOpMode {
                 : !Double.isFinite(targetDistanceInches) ? "UNKNOWN DISTANCE"
                 : tooClose ? "TOO CLOSE" : tooFar ? "TOO FAR" : "IN RANGE";
 
+        logging.setShotContext(targetX, targetY, aimRequested,
+                shotSequence.isTriggerPressed(gamepad1.right_trigger, gamepad2.right_trigger), canFire);
+        logging.update(pose, PedroComponent.follower(), "TELEOP", turnMode, shot.source);
+        logging.addTelemetry(telemetry);
+
         if (SHOT_TUNING_TELEMETRY_ONLY) {
             addShotSettingsTelemetry(shot);
             addShootingRangeTelemetry(shootingRangeStatus);
@@ -547,6 +555,7 @@ public class Pickles2026Teleop extends NextFTCOpMode {
 
     @Override
     public void onStop() {
+        logging.stop();
         LEDControlSubsystem2026.INSTANCE.setShootRangeWarning(false);
         TurretSubsystem2026.INSTANCE.stop();
         shotSequence.cancel();

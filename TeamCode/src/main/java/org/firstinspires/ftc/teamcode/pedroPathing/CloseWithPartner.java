@@ -10,6 +10,7 @@ import com.pedropathing.paths.PathChain;
 import com.qualcomm.robotcore.eventloop.opmode.Autonomous;
 
 import org.firstinspires.ftc.teamcode.GlobalRobotData;
+import org.firstinspires.ftc.teamcode.logging.RobotLogging2026;
 import org.firstinspires.ftc.teamcode.subsystems.AutonomousShooterRpm2026;
 import org.firstinspires.ftc.teamcode.subsystems.FlowerIntakeSubsystem2026;
 import org.firstinspires.ftc.teamcode.subsystems.IntakeWithSensorsSubsystem2026;
@@ -234,6 +235,7 @@ public class CloseWithPartner extends NextFTCOpMode {
     private final ShotSequenceController2026 shotSequence =
             new ShotSequenceController2026();
     private final AutonomousShooterRpm2026 shooterRpm = new AutonomousShooterRpm2026();
+    private final RobotLogging2026 logging = new RobotLogging2026();
 
     public CloseWithPartner() {
         addComponents(
@@ -739,6 +741,7 @@ public class CloseWithPartner extends NextFTCOpMode {
 
     @Override
     public void onStartButtonPressed() {
+        logging.start(getClass().getSimpleName(), "AUTO", shotSequence, true);
         autonStarted = true;
         startPressedNanos = System.nanoTime();
         new SequentialGroup(
@@ -754,6 +757,10 @@ public class CloseWithPartner extends NextFTCOpMode {
         Pose pose = PedroComponent.follower().getPose();
         shooterRpm.update(USE_DISTANCE_BASED_RPM, pose);
         shotSequence.update();
+        logging.update(pose, PedroComponent.follower(), autonStage.name(),
+                (helpShootFar ? "HELP_FAR" : "TRUST_PARTNER") + ";partner_delay_s=" + partnerDelaySeconds,
+                shooterRpm.getMode(USE_DISTANCE_BASED_RPM, pose));
+        logging.addTelemetry(telemetry);
         shooterRpm.addTelemetry(telemetry, USE_DISTANCE_BASED_RPM, pose);
 
         addPlanTelemetry();
@@ -784,6 +791,7 @@ public class CloseWithPartner extends NextFTCOpMode {
 
     @Override
     public void onStop() {
+        logging.stop();
         int finalBallCount =
                 IntakeWithSensorsSubsystem2026.INSTANCE.getBallCount();
         shotSequence.cancel();

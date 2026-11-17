@@ -16,7 +16,7 @@ public final class TurretSubsystem2026 implements Subsystem {
     public static final TurretSubsystem2026 INSTANCE = new TurretSubsystem2026();
 
     // Select before Init. FIXED uses only the two servos, so it also works without encoders.
-    public static TurretController2026.Mode MODE = TurretController2026.Mode.CHASSIS_ONLY;
+    public static TurretController2026.Mode MODE = TurretController2026.Mode.TRACKING;
     public static String LEFT_SERVO_NAME = "Lurret";
     public static String RIGHT_SERVO_NAME = "Rurret";
     // Read only: this is also a drive motor. Never reset its count or change its mode/direction here.
@@ -24,10 +24,10 @@ public final class TurretSubsystem2026 implements Subsystem {
     public static String ABSOLUTE_ENCODER_NAME = "analog_turret_encoder";
     public static double ENCODER_CPR = 4096.0;
     public static double ENCODER_TO_TURRET_RATIO = 81.0 / 45.0;
-    public static double QUAD_DIRECTION_SIGN = -1.0;
+    public static double QUAD_DIRECTION_SIGN = 1.0;
     public static double ABSOLUTE_DIRECTION_SIGN = 1.0;
     public static double ABSOLUTE_MAX_VOLTAGE = 3.255;
-    public static double ABSOLUTE_TURRET_OFFSET_DEGREES = 0.0;
+    public static double ABSOLUTE_TURRET_OFFSET_DEGREES = -196.67;
     public static double SERVO_CENTER_POSITION = 0.5;
     public static double SERVO_TRAVEL_DEGREES = 355.0;
     public static double MIN_ANGLE_DEGREES = -130.0;
@@ -35,11 +35,11 @@ public final class TurretSubsystem2026 implements Subsystem {
     public static double MIN_SERVO_POSITION = 0.0;
     public static double MAX_SERVO_POSITION = 1.0;
     // Initial mechanical calibration, also used in FIXED mode. Tracking learns a correction at center.
-    public static double SERVO_ZERO_OFFSET_DEGREES = 0.0;
+    public static double SERVO_ZERO_OFFSET_DEGREES = -3.0;
     // TOTAL separation: 2 degrees means left +1 degree and right -1 degree.
-    public static double SERVO_DIFFERENTIAL_DEGREES = 2.0;
+    public static double SERVO_DIFFERENTIAL_DEGREES = 3.0;
     // Front-facing zero: 0. Rear-facing zero: 180, matching last year's convention.
-    public static double ROBOT_FRONT_TO_TURRET_ZERO_OFFSET_DEGREES = 0.0;
+    public static double ROBOT_FRONT_TO_TURRET_ZERO_OFFSET_DEGREES = 180.0;
     public static double ROBOT_FRONT_RELATIVE_SIGN = 1.0;
     // Used only with CHASSIS_ONLY, including a turret mechanically locked at a known bearing.
     public static double CHASSIS_ONLY_SHOOTER_HEADING_DEGREES = 0.0;
@@ -148,6 +148,9 @@ public final class TurretSubsystem2026 implements Subsystem {
     }
 
     public void stop() { controller.stop(); } // No repositioning or PWM changes at Stop.
+
+    /** Cached controller values only; no mapping, encoder reads, or servo commands. */
+    public TurretController2026 getLoggingController() { return controller; }
 
     public void addTelemetry(Telemetry telemetry) {
         telemetry.addData("Turret mode", controller.getMode());
