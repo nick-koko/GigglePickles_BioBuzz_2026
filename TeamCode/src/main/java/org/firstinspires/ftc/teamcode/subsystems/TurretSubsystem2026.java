@@ -27,7 +27,11 @@ public final class TurretSubsystem2026 implements Subsystem {
     public static double QUAD_DIRECTION_SIGN = 1.0;
     public static double ABSOLUTE_DIRECTION_SIGN = 1.0;
     public static double ABSOLUTE_MAX_VOLTAGE = 3.255;
-    public static double ABSOLUTE_TURRET_OFFSET_DEGREES = -196.67;
+    public static double ABSOLUTE_TURRET_OFFSET_DEGREES = -36.0;
+    // Captured at Init. Runtime encoder faults fall back to positional servo aiming.
+    public static boolean ENABLE_ENCODER_FALLBACK = true;
+    public static double ENCODER_DISAGREEMENT_DEGREES = 8.0;
+    public static double ENCODER_DISAGREEMENT_SECONDS = 0.25;
     public static double SERVO_CENTER_POSITION = 0.5;
     public static double SERVO_TRAVEL_DEGREES = 355.0;
     public static double MIN_ANGLE_DEGREES = -130.0;
@@ -180,6 +184,9 @@ public final class TurretSubsystem2026 implements Subsystem {
         c.absoluteSign = ABSOLUTE_DIRECTION_SIGN;
         c.absoluteMaxVoltage = ABSOLUTE_MAX_VOLTAGE;
         c.absoluteOffset = ABSOLUTE_TURRET_OFFSET_DEGREES;
+        c.encoderFallbackEnabled = ENABLE_ENCODER_FALLBACK;
+        c.encoderDisagreementDegrees = ENCODER_DISAGREEMENT_DEGREES;
+        c.encoderDisagreementSeconds = ENCODER_DISAGREEMENT_SECONDS;
         c.servoCenter = SERVO_CENTER_POSITION;
         c.servoTravel = SERVO_TRAVEL_DEGREES;
         c.minAngle = MIN_ANGLE_DEGREES;

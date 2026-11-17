@@ -11,12 +11,12 @@ encoder signs, zero calibration, or preload requires Stop and Init again.
 
 | Mode | Hardware required | Left bumper | Turret behavior |
 | --- | --- | --- | --- |
-| `CHASSIS_ONLY` (default) | No turret hardware | Existing chassis turn toward the goal, with full translation control | No turret commands |
+| `CHASSIS_ONLY` | No turret hardware | Existing chassis turn toward the goal, with full translation control | No turret commands |
 | `FIXED` | Both turret servos | Chassis aims accounting for the fixed turret bearing | Servos hold `FIXED_ANGLE_DEGREES`; no encoder reads |
-| `TRACKING` | Both servos, quadrature and analog encoder | Turret aims; chassis translation and right-stick rotation remain driver controlled | Holds the last requested turret angle when LB is released |
+| `TRACKING` (default) | Both servos, quadrature and analog encoder | Optional shooter spin-up and range warning as configured | Tracks the selected goal continuously after startup; chassis translation and rotation remain driver controlled |
 
-The existing GP2 right-bumper aim request follows the same selection. No buttons
-were repurposed. `CHASSIS_ONLY` also suits a turret that is mechanically locked
+GP2 right bumper has the same aim-button behavior as GP1 left bumper. Continuous
+tracking respects the configured turret travel limits. `CHASSIS_ONLY` also suits a turret that is mechanically locked
 or disconnected. For a mechanically locked shooter pointing away from robot
 front, set `CHASSIS_ONLY_SHOOTER_HEADING_DEGREES` to its robot-relative bearing.
 
@@ -113,7 +113,35 @@ is valid, RT remains driver controlled; it does not wait for every aimed shot to
 meet an angle/speed tolerance. Fixed-mode settling is time based because it has
 no encoder requirement.
 
-## Verification
+## Runtime encoder fallback
+
+After successful startup calibration, `ENABLE_ENCODER_FALLBACK=true` keeps
+positional servo aiming active if quadrature exceeds the travel guard or if
+analog/quadrature disagreement exceeds `ENCODER_DISAGREEMENT_DEGREES` (8 degrees)
+continuously for `ENCODER_DISAGREEMENT_SECONDS` (0.25 seconds). An invalid analog
+signal for that duration also selects fallback. These settings are captured at Init.
+
+Fallback uses the existing servo angle mapping, learned zero, preload, rate limit,
+and travel limits, with encoder-based outer trim disabled. The servos still use
+their own internal position control. Goal tracking and driver firing continue;
+external measured angle/velocity become unknown and aim-ready stays false.
+Telemetry status reports `SERVO_ONLY fallback`; basic logs emit a `TURRET_STATE`
+event with `SERVO_ONLY`, and detailed logs retain raw phase and count diagnostics.
+
+Fallback stays latched until a new Init and does not export an encoder handoff.
+Teleop Init stays passive; a missing handoff requires calibration after Play.
+Startup calibration/configuration failures still fault. This fallback addresses
+runtime sensing trouble, not a mechanically stuck turret or lost servo power.
+Analog is used as a phase consistency check, not an absolute fallback controller:
+the 260-degree travel exceeds its 200-degree repeat period, and logged analog
+glitches make automatic branch selection unsafe to trust without further testing.
+
+Before match use, test on the robot with a temporarily low disagreement threshold
+selected before Init (for example 0.1 degrees). Verify that
+fallback is reported, the turret still follows both directions, firing works,
+and Stop prevents further commands. Restore the default threshold afterward.
+
+## Verification commands
 
 Compile: `./gradlew.bat :TeamCode:compileDebugJavaWithJavac --offline`.
 

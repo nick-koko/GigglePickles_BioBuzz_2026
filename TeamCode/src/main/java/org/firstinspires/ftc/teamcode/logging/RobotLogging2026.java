@@ -247,7 +247,10 @@ public final class RobotLogging2026 {
             f.flower = FlowerIntakeSubsystem2026.INSTANCE.getPosition().name();
             TurretController2026 t = TurretSubsystem2026.INSTANCE.getLoggingController();
             if (t != null) {
-                f.turretMode = t.getMode().name(); f.turretState = t.getState().name();
+                f.turretMode = t.getMode().name();
+                f.turretState = t.isServoOnlyFallback()
+                        && t.getState() == TurretController2026.State.READY
+                        ? "SERVO_ONLY" : t.getState().name();
                 if (t.getMode() == TurretController2026.Mode.CHASSIS_ONLY) {
                     f.turretRelative = TurretSubsystem2026.CHASSIS_ONLY_SHOOTER_HEADING_DEGREES;
                 } else {

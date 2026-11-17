@@ -43,6 +43,9 @@ public final class TurretController2026 {
         public double maxTrim = 8.0;
         public double fixedAngle = 0.0;
         public double autonomousAngle = 0.0;
+        public boolean encoderFallbackEnabled = true;
+        public double encoderDisagreementDegrees = 8.0;
+        public double encoderDisagreementSeconds = 0.25;
 
         public double countsPerDegree() { return encoderCpr * encoderRatio / 360.0; }
 
@@ -59,7 +62,8 @@ public final class TurretController2026 {
                     absoluteOffset, minAngle, maxAngle, servoCenter, servoTravel, minServo, maxServo,
                     servoZeroOffset, differential, frontOffset, robotRelativeSign, centerAngle,
                     settleSeconds, timeoutSeconds, maxCenterError, handoffTolerance, readyTolerance,
-                    readySpeed, rateLimit, outerKp, maxTrim, fixedAngle, autonomousAngle};
+                    readySpeed, rateLimit, outerKp, maxTrim, fixedAngle, autonomousAngle,
+                    encoderDisagreementDegrees, encoderDisagreementSeconds};
             for (double value : values) if (!Double.isFinite(value)) return false;
             return encoderCpr > 0 && encoderRatio > 0 && servoTravel > 0 && absoluteMaxVoltage > 0
                     && Math.abs(quadSign) == 1 && Math.abs(absoluteSign) == 1
@@ -68,7 +72,8 @@ public final class TurretController2026 {
                     && centerAngle >= minAngle && centerAngle <= maxAngle
                     && settleSeconds >= 0 && timeoutSeconds > settleSeconds && maxCenterError >= 0
                     && handoffTolerance >= 0 && readyTolerance >= 0 && readySpeed >= 0
-                    && readyLoops > 0 && rateLimit > 0 && maxTrim >= 0;
+                    && readyLoops > 0 && rateLimit > 0 && maxTrim >= 0
+                    && encoderDisagreementDegrees > 0 && encoderDisagreementSeconds > 0;
         }
     }
 
@@ -105,6 +110,9 @@ public final class TurretController2026 {
     private double target, commanded, leftPosition = Double.NaN, rightPosition = Double.NaN;
     private double raw = Double.NaN, centerRawAverage = Double.NaN;
     private double previousTime, centerStarted, fixedStarted;
+    // Latched until a fresh Init: never resume trusting a drifting encoder mid-match.
+    private boolean servoOnlyFallback;
+    private double disagreementStarted = Double.NaN;
 
     public TurretController2026(Mode mode, Config config, Hardware hardware, double now) {
         this.mode = mode;
@@ -244,20 +252,53 @@ public final class TurretController2026 {
         if (mode == Mode.TRACKING && (!Double.isFinite(measured)
                 || measured < config.minAngle - config.maxCenterError
                 || measured > config.maxAngle + config.maxCenterError)) {
-            fail("Quadrature position outside turret travel; recalibration required");
-            return;
+            if (config.encoderFallbackEnabled) {
+                useServoOnly("quadrature outside travel");
+            } else {
+                fail("Quadrature position outside turret travel; recalibration required");
+                return;
+            }
+        }
+        if (mode == Mode.TRACKING && config.encoderFallbackEnabled && !servoOnlyFallback) {
+            // Compare phases modulo one encoder revolution. This does not choose a
+            // potentially ambiguous analog branch (phase repeats every 200 turret degrees).
+            double expectedPhase = (measured - config.absoluteOffset)
+                    * config.encoderRatio / config.absoluteSign;
+            double error = Math.abs(wrap180(raw - expectedPhase)) / config.encoderRatio;
+            if (!Double.isFinite(error) || error > config.encoderDisagreementDegrees) {
+                if (!Double.isFinite(disagreementStarted)) disagreementStarted = now;
+                if (now - disagreementStarted >= config.encoderDisagreementSeconds) {
+                    useServoOnly("encoder disagreement or invalid analog signal");
+                }
+            } else {
+                disagreementStarted = Double.NaN;
+            }
+        }
+        if (servoOnlyFallback) {
+            // Raw counts and phase remain available for diagnosis; these are no
+            // longer trustworthy measurements for trim or an on-target assertion.
+            measured = velocity = Double.NaN;
         }
         double step = Math.max(0, config.rateLimit) * Math.min(dt, 0.1);
         double previousCommand = commanded;
         commanded += clip(target - commanded, -step, step);
         if (mode == Mode.FIXED && previousCommand != commanded) fixedStarted = now;
-        double trim = mode == Mode.TRACKING
+        double trim = mode == Mode.TRACKING && !servoOnlyFallback
                 ? clip(config.outerKp * (target - measured), -config.maxTrim, config.maxTrim) : 0;
         apply(clip(commanded + trim, config.minAngle, config.maxAngle));
         readyLoops = mode == Mode.TRACKING && targetReachable
                 && Math.abs(target - measured) <= config.readyTolerance
                 && Math.abs(velocity) <= config.readySpeed ? readyLoops + 1 : 0;
     }
+
+    private void useServoOnly(String reason) {
+        if (servoOnlyFallback) return;
+        servoOnlyFallback = true;
+        readyLoops = 0;
+        status = "SERVO_ONLY fallback: " + reason + "; encoder trim disabled until re-Init";
+    }
+
+    public boolean isServoOnlyFallback() { return servoOnlyFallback; }
 
     public void setTarget(double angle) {
         if (!Double.isFinite(angle)) return;
@@ -282,7 +323,7 @@ public final class TurretController2026 {
 
     /** Reads a fresh counter/phase pair; does not move the mechanism. */
     public Snapshot snapshot() {
-        if (mode != Mode.TRACKING || !calibrated || state != State.READY) return null;
+        if (mode != Mode.TRACKING || !calibrated || state != State.READY || servoOnlyFallback) return null;
         int current = hardware.encoderTicks();
         double angle = quadAngle(current) - quadratureOffset;
         double phase = readRaw();

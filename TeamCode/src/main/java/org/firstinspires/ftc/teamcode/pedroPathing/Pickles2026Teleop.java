@@ -182,7 +182,11 @@ public class Pickles2026Teleop extends NextFTCOpMode {
 
         telemetry.addLine("Pickles 2026 ready");
         telemetry.addLine("GP1: left stick drive/strafe, right stick turn");
-        telemetry.addLine("GP1: hold LB to aim chassis or turret at shooting target");
+        if (TurretSubsystem2026.INSTANCE.usesTurretAim()) {
+            telemetry.addLine("Turret tracks the goal automatically after startup");
+        } else {
+            telemetry.addLine("GP1: hold LB to aim chassis at shooting target");
+        }
         telemetry.addLine("GP1 D-pad: face absolute 0/90/180/-90 headings");
         telemetry.addLine("GP2 D-pad up/down: trim calculated shooter RPM");
         telemetry.addLine("GP1/GP2: A intake/re-arm, hold B reverse, X stop");
@@ -272,29 +276,30 @@ public class Pickles2026Teleop extends NextFTCOpMode {
         double headingErrorRadians = 0.0;
         automaticTurnRawPower = 0.0;
 
+        // Keep driver aim intent separate from continuous turret tracking. It still
+        // controls the optional shooter spin-up and range warning behavior.
         boolean aimRequested = gamepad1.left_bumper || gamepad2.right_bumper;
-        if (aimRequested) {
-            if (turret.usesTurretAim()) {
-                turret.aimAt(targetX, targetY, pose.getX(), pose.getY(), pose.getHeading());
-                turnMode = "TURRET TARGET / MANUAL CHASSIS";
-            } else {
-                if (!automaticTurnWasActive || previousUsePedroAimPidf != USE_PEDRO_AIM_PIDF
-                        || shot.nominalX != previousAimTargetX || shot.nominalY != previousAimTargetY
-                        || (shot.table != null) != previousTableSolutionActive) {
-                    headingTurnController.reset();
-                }
-                commandedHeadingRadians = targetHeadingRadians - turret.getChassisAimOffsetRadians();
-                headingErrorRadians = normalizeRadians(commandedHeadingRadians - pose.getHeading());
-                turn = calculateAutomaticTurn(
-                        pose,
-                        commandedHeadingRadians,
-                        headingErrorRadians,
-                        angularVelocityRadiansPerSecond,
-                        AIM_TURN_KP_PER_DEGREE
-                );
-                turnMode = "SHOOT TARGET";
+        boolean trackingTurret = turret.usesTurretAim();
+        boolean chassisAimActive = aimRequested && !trackingTurret;
+        if (trackingTurret) {
+            turret.aimAt(targetX, targetY, pose.getX(), pose.getY(), pose.getHeading());
+            turnMode = "TURRET TARGET / MANUAL CHASSIS";
+        } else if (chassisAimActive) {
+            if (!automaticTurnWasActive || previousUsePedroAimPidf != USE_PEDRO_AIM_PIDF
+                    || shot.nominalX != previousAimTargetX || shot.nominalY != previousAimTargetY
+                    || (shot.table != null) != previousTableSolutionActive) {
+                headingTurnController.reset();
             }
-
+            commandedHeadingRadians = targetHeadingRadians - turret.getChassisAimOffsetRadians();
+            headingErrorRadians = normalizeRadians(commandedHeadingRadians - pose.getHeading());
+            turn = calculateAutomaticTurn(
+                    pose,
+                    commandedHeadingRadians,
+                    headingErrorRadians,
+                    angularVelocityRadiansPerSecond,
+                    AIM_TURN_KP_PER_DEGREE
+            );
+            turnMode = "SHOOT TARGET";
         } /* else if (ENABLE_DPAD_TURNING) {
             if (gamepad1.dpad_up) {
                 commandedHeadingRadians =
@@ -328,7 +333,7 @@ public class Pickles2026Teleop extends NextFTCOpMode {
             }
         } */
 
-        automaticTurnWasActive = aimRequested && !turret.usesTurretAim();
+        automaticTurnWasActive = chassisAimActive;
         previousUsePedroAimPidf = USE_PEDRO_AIM_PIDF;
         // Smoothly changing table offsets must not re-prime Pedro's PIDF every loop.
         previousAimTargetX = shot.nominalX;

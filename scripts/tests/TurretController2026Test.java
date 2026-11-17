@@ -15,6 +15,7 @@ public final class TurretController2026Test {
         initResetAndStop();
         aimingAndLimits();
         calibrationFailures();
+        encoderFallback();
         System.out.println("Passed " + checks + " turret controller checks.");
     }
 
@@ -231,6 +232,67 @@ public final class TurretController2026Test {
         t.start(1, false);
         check("bad live setting at Play stays faulted", t.getState() == State.FAULT);
         check("bad live setting at Play cannot write", h.writes == 0);
+    }
+
+    private static void encoderFallback() {
+        Config c = new Config();
+        FakeHardware h = new FakeHardware(c);
+        TurretController2026 t = calibrated(c, h);
+        // Correct phase wrapping on a real sweep must not trigger fallback.
+        for (int i = 1; i <= 100; i++) {
+            h.angle = 120 * Math.sin(i * .1);
+            t.setTarget(h.angle);
+            t.update(2.1 + i * .03);
+        }
+        check("healthy sweeps and wraps retain quadrature", !t.isServoOnlyFallback());
+        h.origin += (int) Math.round(12 * c.countsPerDegree());
+        t.update(5.2);
+        t.update(5.3);
+        check("short disagreement does not latch", !t.isServoOnlyFallback());
+        h.origin = 0;
+        t.update(5.31);
+        h.origin += (int) Math.round(12 * c.countsPerDegree());
+        t.update(5.4);
+        t.update(5.66);
+        check("persistent drift enables servo fallback", t.isServoOnlyFallback());
+        check("fallback continues tracking state", t.getState() == State.READY);
+        check("fallback permits driver firing", t.canShoot(5.66));
+        check("fallback does not assert measured position", Double.isNaN(t.getMeasuredAngle()));
+        check("fallback does not assert settled", !t.isAimReady());
+        check("degraded reference not handed to teleop", t.snapshot() == null);
+        h.origin = 0;
+        t.aim(50, 0);
+        for (int i = 1; i <= 50; i++) t.update(5.66 + i * .03);
+        close("fallback follows new bearing without outer trim", .5 - 51.0 / 355, h.left);
+        check("fallback remains latched after sensors agree", t.isServoOnlyFallback());
+        t.aim(-50, 0);
+        for (int i = 1; i <= 50; i++) t.update(7.16 + i * .03);
+        close("fallback can turn to opposite side", .5 + 49.0 / 355, h.left);
+        t.aim(180, 0);
+        for (int i = 1; i <= 50; i++) t.update(8.66 + i * .03);
+        check("fallback keeps servo limits", Math.abs((.5-h.left)*355) <= 130);
+        int writes = h.writes;
+        t.stop();
+        t.update(11);
+        check("Stop still prevents fallback writes", writes == h.writes);
+
+        h = new FakeHardware(c);
+        t = calibrated(c, h);
+        h.origin = 100000;
+        t.update(2.12);
+        check("out of range count immediately falls back", t.isServoOnlyFallback());
+        h = new FakeHardware(c);
+        t = calibrated(c, h);
+        h.badVoltage = true;
+        t.update(2.2);
+        t.update(2.46);
+        check("invalid analog uses servo fallback after debounce", t.isServoOnlyFallback());
+        c.encoderFallbackEnabled = false;
+        h = new FakeHardware(c);
+        t = calibrated(c, h);
+        h.origin = 100000;
+        t.update(2.12);
+        check("disabled fallback preserves old fault behavior", t.getState() == State.FAULT);
     }
 
     private static TurretController2026 calibrated(Config c, FakeHardware h) {
