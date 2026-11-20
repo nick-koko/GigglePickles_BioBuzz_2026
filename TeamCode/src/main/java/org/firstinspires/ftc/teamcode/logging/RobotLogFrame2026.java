@@ -15,7 +15,8 @@ public final class RobotLogFrame2026 {
             + "turret_measured_deg,turret_target_deg,turret_robot_relative_deg,"
             + "turret_velocity_deg_s,turret_aim_ready,turret_reachable,"
             + "dropped_match_rows,dropped_detail_rows,writer_queue_rows,"
-            + "shooter_power_profile,shooter_startup_elapsed_s,shooter_startup_exit_reason").split(",");
+            + "shooter_power_profile,shooter_startup_elapsed_s,shooter_startup_exit_reason,"
+            + "intake_capacity_override,ball_count_recovery_events").split(",");
 
     public String session = "", opmode = "", phase = "", profile = "", stage = "", plan = "";
     public double timeMs, periodMs, previousCaptureMs;
@@ -42,6 +43,8 @@ public final class RobotLogFrame2026 {
     public int queueRows;
     public String shooterPowerProfile = "OFF", shooterStartupExitReason = "";
     public double shooterStartupElapsed;
+    public boolean intakeCapacityOverride;
+    public int ballCountRecoveryEvents;
 
     public Object[] values(String event, String note) {
         return new Object[]{1, session, opmode, phase, profile, timeMs, epochMs, loop, periodMs,
@@ -54,6 +57,6 @@ public final class RobotLogFrame2026 {
                 jamReverse, flower, turretMode, turretState, turretMeasured, turretTarget,
                 turretRelative, turretVelocity, turretReady, turretReachable,
                 droppedMatch, droppedDetail, queueRows, shooterPowerProfile,
-                shooterStartupElapsed, shooterStartupExitReason};
+                shooterStartupElapsed, shooterStartupExitReason, intakeCapacityOverride, ballCountRecoveryEvents};
     }
 }

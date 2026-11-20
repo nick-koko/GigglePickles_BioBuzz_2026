@@ -76,7 +76,11 @@ public final class RobotLogging2026 {
             + "boost_end_power_for_sequence,boost_voltage_scaled_for_sequence,boost_nominal_v_for_sequence,"
             + "boost_taper_rpm_for_sequence,boost_floor_requested,controller_sample_override_floor,"
             + "boost_voltage_gain,boost_floor_voltage_scaled,boost_overspeed_multiplier,"
-            + "boost_floor_effective,controller_sample_boost_bypass").split(",");
+            + "boost_floor_effective,controller_sample_boost_bypass,intake_override_held,"
+            + "intake_capacity_reached,sustained_beam_recovery_enabled,sustained_beam_confirm_s,"
+            + "confirmed_beam_stack_count,ball_count_recovery_from,ball_count_recovery_to,"
+            + "ball_count_recovery_beam_mask,beam_shooter_confirm_s,beam_middle_high_confirm_s,"
+            + "beam_middle_low_confirm_s,beam_entry_confirm_s").split(",");
     public static final String[] DETAIL_HEADER = concatenate(RobotLogFrame2026.HEADER, DETAIL_EXTRA_HEADER);
 
     private AsyncCsvWriter2026 writer;
@@ -231,6 +235,8 @@ public final class RobotLogging2026 {
         IntakeWithSensorsSubsystem2026 i = IntakeWithSensorsSubsystem2026.INSTANCE;
         ShooterSubsystem2026 s = ShooterSubsystem2026.INSTANCE;
         f.ballCount = i.getBallCount(); f.beams = i.getCachedBeamMask();
+        f.intakeCapacityOverride = i.isIntakeCapacityOverrideActive();
+        f.ballCountRecoveryEvents = i.getBallCountRecoveryEvents();
         f.occupied = (i.isShooterPositionOccupied() ? 1 : 0) | (i.isMiddleHighPositionOccupied() ? 2 : 0)
                 | (i.isMiddleLowPositionOccupied() ? 4 : 0) | (i.isIntakeEntryPositionOccupied() ? 8 : 0);
         f.beamAgeMs = ageMs(now, i.getBeamSampleNanos());
@@ -343,10 +349,19 @@ public final class RobotLogging2026 {
                 sequence.isActiveRampedBoost(), sequence.getActiveBoostStartPower(), sequence.getActiveBoostEndPower(),
                 sequence.isActiveBoostVoltageScaling(), sequence.getActiveBoostNominalV(), sequence.getActiveBoostTaperRpm(),
                 sequence.getRequestedBoostFloor(), s.getSampleOverrideFloor(), s.getBoostVoltageGain(),
-                s.getBoostScaledFloor(), s.getBoostOverspeedMultiplier(), s.getBoostEffectiveFloor(), s.didBoostBypassSlew()};
+                s.getBoostScaledFloor(), s.getBoostOverspeedMultiplier(), s.getBoostEffectiveFloor(), s.didBoostBypassSlew(),
+                i.isIntakeCapacityOverrideHeld(), i.isIntakeCapacityReached(),
+                IntakeWithSensorsSubsystem2026.ENABLE_SUSTAINED_BEAM_RECOVERY,
+                IntakeWithSensorsSubsystem2026.SUSTAINED_BEAM_CONFIRM_SECONDS,
+                i.getConfirmedBeamStackCount(), i.getLastRecoveryFrom(), i.getLastRecoveryTo(), i.getLastRecoveryBeamMask(),
+                i.getBeamBlockedSeconds(0), i.getBeamBlockedSeconds(1), i.getBeamBlockedSeconds(2), i.getBeamBlockedSeconds(3)};
     }
 
     public void addTelemetry(Telemetry telemetry) {
+        IntakeWithSensorsSubsystem2026 intake = IntakeWithSensorsSubsystem2026.INSTANCE;
+        telemetry.addData("Intake capacity override", intake.isIntakeCapacityOverrideActive());
+        telemetry.addData("Beam stack / count recoveries", "%d / %d",
+                intake.getConfirmedBeamStackCount(), intake.getBallCountRecoveryEvents());
         ShooterSubsystem2026 shooter = ShooterSubsystem2026.INSTANCE;
         telemetry.addData("Shooter profile / up / down", "%s / %.2f / %.2f power/s",
                 shooter.getPowerProfileState(), shooter.getActiveSlewUpPerSecond(), shooter.getActiveSlewDownPerSecond());

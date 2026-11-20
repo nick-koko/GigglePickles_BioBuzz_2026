@@ -17,8 +17,8 @@ import dev.nextftc.ftc.ActiveOpMode;
  * <p>Four break beams represent the four final ball positions, ordered from
  * the shooter back toward the intake entrance. Position detections latch so a
  * hole in a ball cannot make the count decrease. Starting a shooting feed
- * clears all four tracked positions. After a feed or reset, a stack of balls
- * that sits still on the beams is counted even though no beam changed.</p>
+ * clears all four tracked positions. Sustained top-down blocked-beam stacks
+ * reconcile missed edges, without repeatedly counting a blocked sensor.</p>
  */
 @Configurable
 public class IntakeWithSensorsSubsystem2026 implements Subsystem {
@@ -48,6 +48,8 @@ public class IntakeWithSensorsSubsystem2026 implements Subsystem {
     // After a feed or reset, balls that never moved produce no new beam edges.
     // Once the beams hold still this long, count the stack they show.
     public static double STATIONARY_RESYNC_SECONDS = 0.25;
+    public static boolean ENABLE_SUSTAINED_BEAM_RECOVERY = true;
+    public static double SUSTAINED_BEAM_CONFIRM_SECONDS = 0.10;
 
     public static double GATE_CLOSED_POSITION = 0.15; //0.15 => 0.42
     public static double GATE_OPEN_POSITION = 0.35; //0.35 => 0.15
@@ -66,6 +68,7 @@ public class IntakeWithSensorsSubsystem2026 implements Subsystem {
     private IntakeMode intakeMode = IntakeMode.STOPPED;
     private boolean feedingToShooter;
     private boolean jamReversing;
+    private boolean intakeCapacityOverrideHeld;
     private boolean shooterPositionOccupied;
     private boolean middleHighPositionOccupied;
     private boolean middleLowPositionOccupied;
@@ -79,6 +82,9 @@ public class IntakeWithSensorsSubsystem2026 implements Subsystem {
     private boolean stationaryResyncPending;
     private int previousBeamMask = -1;
     private long beamsStableSinceNanos;
+    private final long[] blockedSinceNanos = new long[4];
+    private int confirmedBeamStackCount, ballCountRecoveryEvents;
+    private int lastRecoveryFrom, lastRecoveryTo, lastRecoveryBeamMask;
     private ManualMotorTestMode manualMotorTestMode =
             ManualMotorTestMode.NONE;
     private double appliedIntakeRpm;
@@ -94,6 +100,7 @@ public class IntakeWithSensorsSubsystem2026 implements Subsystem {
 
     @Override
     public void initialize() {
+        validateConfiguration();
         resetRuntimeState();
 
         intakeMotor = ActiveOpMode.hardwareMap().get(DcMotorEx.class, "intake_motor2");
@@ -150,10 +157,28 @@ public class IntakeWithSensorsSubsystem2026 implements Subsystem {
     }
 
     public void stopIntake() {
+        intakeCapacityOverrideHeld = false;
         manualMotorTestMode = ManualMotorTestMode.NONE;
         feedingToShooter = false;
         jamReversing = false;
         intakeMode = IntakeMode.STOPPED;
+    }
+
+    /** Bypasses only the intake capacity stop. Does not start a stopped intake or open the gate. */
+    public void setIntakeCapacityOverrideHeld(boolean held) {
+        intakeCapacityOverrideHeld = held;
+    }
+
+    /** Level override is separate from edge-triggered start; X has priority over every input here. */
+    public void updateTeleopCollectionInputs(boolean startPressed, boolean controller2AHeld,
+            boolean stopPressed, boolean reverseHeld, boolean flowerDown) {
+        if (stopPressed) {
+            stopIntake();
+            return;
+        }
+        if (startPressed || flowerDown) intakeForward();
+        setIntakeCapacityOverrideHeld(controller2AHeld);
+        setJamReversing(reverseHeld);
     }
 
     /**
@@ -225,6 +250,9 @@ public class IntakeWithSensorsSubsystem2026 implements Subsystem {
     }
 
     private void resetRuntimeState() {
+        intakeCapacityOverrideHeld = false;
+        clearBeamConfirmation();
+        ballCountRecoveryEvents = lastRecoveryFrom = lastRecoveryTo = lastRecoveryBeamMask = 0;
         intakeMode = IntakeMode.STOPPED;
         feedingToShooter = false;
         jamReversing = false;
@@ -253,6 +281,10 @@ public class IntakeWithSensorsSubsystem2026 implements Subsystem {
     }
 
     private void applyOutputs() {
+        applyOutputs(System.nanoTime());
+    }
+
+    private void applyOutputs(long nowNanos) {
         if (intakeMotor == null || transferMotor == null
                 || ballAtShooterBeam == null
                 || ballInMiddleHighBeam == null
@@ -262,7 +294,7 @@ public class IntakeWithSensorsSubsystem2026 implements Subsystem {
             return;
         }
 
-        updateBallTracking();
+        updateBallTracking(nowNanos);
 
         appliedIntakeRpm = 0.0;
         appliedTransferRpm = 0.0;
@@ -331,6 +363,7 @@ public class IntakeWithSensorsSubsystem2026 implements Subsystem {
     }
 
     private void selectManualMotorTestMode(ManualMotorTestMode mode) {
+        intakeCapacityOverrideHeld = false;
         intakeMode = IntakeMode.STOPPED;
         feedingToShooter = false;
         jamReversing = false;
@@ -338,14 +371,14 @@ public class IntakeWithSensorsSubsystem2026 implements Subsystem {
         manualMotorTestMode = mode;
     }
 
-    private void updateBallTracking() {
+    private void updateBallTracking(long nowNanos) {
         boolean shooterBroken = isBallAtShooterBeamBroken();
         boolean middleHighBroken = isMiddleHighBeamBroken();
         boolean middleLowBroken = isMiddleLowBeamBroken();
         boolean intakeEntryBroken = isIntakeEntryBeamBroken();
         cachedBeamMask = (shooterBroken ? 1 : 0) | (middleHighBroken ? 2 : 0)
                 | (middleLowBroken ? 4 : 0) | (intakeEntryBroken ? 8 : 0);
-        beamSampleNanos = System.nanoTime();
+        beamSampleNanos = nowNanos;
 
         if (cachedBeamMask != previousBeamMask) {
             previousBeamMask = cachedBeamMask;
@@ -355,6 +388,8 @@ public class IntakeWithSensorsSubsystem2026 implements Subsystem {
             // If the gate never opened, the balls are still sitting on beams
             // that were already broken when the feed cleared the count.
             stationaryResyncPending = true;
+            beamsStableSinceNanos = beamSampleNanos;
+            clearBeamConfirmation();
         }
         previousFeedingToShooter = feedingToShooter;
 
@@ -365,6 +400,18 @@ public class IntakeWithSensorsSubsystem2026 implements Subsystem {
                         && manualMotorTestMode == ManualMotorTestMode.NONE;
 
         if (mayLatchNewBalls) {
+            confirmedBeamStackCount = 0;
+            for (int bit = 0; bit < 4; bit++) {
+                if ((cachedBeamMask & (1 << bit)) == 0) blockedSinceNanos[bit] = 0;
+                else if (blockedSinceNanos[bit] == 0) blockedSinceNanos[bit] = nowNanos;
+            }
+            // Confirm each top-down position independently. Lower beam blips
+            // cannot erase confirmation of upper positions. A gap stops the stack.
+            for (int bit = 0; bit < 4; bit++) {
+                if (blockedSinceNanos[bit] == 0
+                        || (nowNanos-blockedSinceNanos[bit])/1e9 < SUSTAINED_BEAM_CONFIRM_SECONDS) break;
+                confirmedBeamStackCount++;
+            }
             /*
              * Each incoming ball passes the lower sensors before reaching its
              * final position. Only accept the next expected final position so
@@ -394,21 +441,23 @@ public class IntakeWithSensorsSubsystem2026 implements Subsystem {
                 intakeEntryPositionOccupied = true;
             }
 
+            if (ENABLE_SUSTAINED_BEAM_RECOVERY) recoverBlockedStack(confirmedBeamStackCount);
+
             double stableSeconds = (beamSampleNanos - beamsStableSinceNanos) / 1e9;
             if (stationaryResyncPending
                     && stableSeconds >= STATIONARY_RESYNC_SECONDS) {
                 stationaryResyncPending = false;
-                int stackedBalls = stackedBeamCount(
-                        shooterBroken,
-                        middleHighBroken,
-                        middleLowBroken,
-                        intakeEntryBroken
-                );
-                // Only raise the count; a hole in a ball must not lower it.
-                if (stackedBalls > getBallCount()) {
-                    occupyTopPositions(stackedBalls);
+                // Retain the old one-shot fallback when ongoing recovery is
+                // disabled. It must not bypass a longer configured new delay.
+                if (!ENABLE_SUSTAINED_BEAM_RECOVERY) {
+                    recoverBlockedStack(stackedBeamCount(shooterBroken, middleHighBroken,
+                            middleLowBroken, intakeEntryBroken));
                 }
             }
+        } else {
+            // Feeding/reversing/test time must not pre-qualify the next collection.
+            clearBeamConfirmation();
+            beamsStableSinceNanos = beamSampleNanos;
         }
 
         previousShooterBeamBroken = shooterBroken;
@@ -428,6 +477,7 @@ public class IntakeWithSensorsSubsystem2026 implements Subsystem {
      * Clears the latched occupancy model when a shooting feed begins.
      */
     public void clearTrackedBalls() {
+        clearBeamConfirmation();
         shooterPositionOccupied = false;
         middleHighPositionOccupied = false;
         middleLowPositionOccupied = false;
@@ -443,6 +493,7 @@ public class IntakeWithSensorsSubsystem2026 implements Subsystem {
      * fill toward the intake entrance.
      */
     public void setBallCount(int count) {
+        clearBeamConfirmation();
         occupyTopPositions(count);
         simulatedUpperStorageFull = false;
         synchronizePreviousBeamStates();
@@ -481,7 +532,28 @@ public class IntakeWithSensorsSubsystem2026 implements Subsystem {
     }
 
     private boolean shouldStopIntakeForCapacity() {
-        return ENABLE_BALL_TRACKING && getBallCount() >= 4;
+        return isIntakeCapacityReached() && !intakeCapacityOverrideHeld;
+    }
+
+    private void recoverBlockedStack(int count) {
+        int previous = getBallCount();
+        if (count <= previous) return;
+        lastRecoveryFrom = previous;
+        lastRecoveryTo = count;
+        lastRecoveryBeamMask = cachedBeamMask;
+        ballCountRecoveryEvents++;
+        occupyTopPositions(count);
+    }
+
+    private void clearBeamConfirmation() {
+        for (int bit = 0; bit < 4; bit++) blockedSinceNanos[bit] = 0;
+        confirmedBeamStackCount = 0;
+    }
+
+    public static void validateConfiguration() {
+        if (!Double.isFinite(STATIONARY_RESYNC_SECONDS) || STATIONARY_RESYNC_SECONDS < 0
+                || !Double.isFinite(SUSTAINED_BEAM_CONFIRM_SECONDS) || SUSTAINED_BEAM_CONFIRM_SECONDS < 0)
+            throw new IllegalArgumentException("Intake beam confirmation times must be finite and nonnegative");
     }
 
     private static double positiveRpm(double rpm) {
@@ -570,6 +642,22 @@ public class IntakeWithSensorsSubsystem2026 implements Subsystem {
 
     public boolean isIntakeStoppedForCapacity() {
         return shouldStopIntakeForCapacity();
+    }
+
+    public boolean isIntakeCapacityReached() { return ENABLE_BALL_TRACKING && getBallCount() >= 4; }
+    public boolean isIntakeCapacityOverrideHeld() { return intakeCapacityOverrideHeld; }
+    public boolean isIntakeCapacityOverrideActive() {
+        return intakeCapacityOverrideHeld && intakeMode == IntakeMode.FORWARD
+                && !feedingToShooter && !jamReversing && manualMotorTestMode == ManualMotorTestMode.NONE;
+    }
+    public int getConfirmedBeamStackCount() { return confirmedBeamStackCount; }
+    public int getBallCountRecoveryEvents() { return ballCountRecoveryEvents; }
+    public int getLastRecoveryFrom() { return lastRecoveryFrom; }
+    public int getLastRecoveryTo() { return lastRecoveryTo; }
+    public int getLastRecoveryBeamMask() { return lastRecoveryBeamMask; }
+    /** Uses the same cached sample time as the mask, without reading hardware again. */
+    public double getBeamBlockedSeconds(int bit) {
+        return blockedSinceNanos[bit] == 0 ? 0.0 : (beamSampleNanos-blockedSinceNanos[bit])/1e9;
     }
 
     public boolean isUpperStorageFullSimulated() {

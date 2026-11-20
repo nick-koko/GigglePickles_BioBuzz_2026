@@ -24,6 +24,10 @@ public final class MatchLogRecorder2026 {
             if (changed != 0) event(frame, "BEAM_EDGE", "changed_mask=" + changed);
             if (frame.ballCount != previous.ballCount)
                 event(frame, "BALL_COUNT", "Tracked occupancy; cleared when feeding begins");
+            if (frame.ballCountRecoveryEvents != previous.ballCountRecoveryEvents)
+                event(frame, "BALL_COUNT_RECOVERY", "Sustained blocked-beam stack reconciled; not a verified physical count");
+            if (frame.intakeCapacityOverride != previous.intakeCapacityOverride)
+                event(frame, "INTAKE_OVERRIDE", frame.intakeCapacityOverride ? "HELD" : "RELEASED_OR_STOPPED");
             if (!frame.stage.equals(previous.stage) || !frame.plan.equals(previous.plan))
                 event(frame, "STAGE", frame.stage);
             if (frame.fireRequested != previous.fireRequested

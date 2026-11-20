@@ -354,17 +354,14 @@ public class Pickles2026Teleop extends NextFTCOpMode {
         );
 
         boolean intakeStartPressed = gamepad1.aWasPressed() || gamepad2.aWasPressed();
-        if (intakeStartPressed || (flower.getPosition() == FlowerIntakeSubsystem2026.Position.DOWN)) {
-            intake.intakeForward();
-        }
         boolean stopFeedWasPressed =
                 gamepad1.xWasPressed() || gamepad2.xWasPressed();
         if (stopFeedWasPressed) {
             shotSequence.cancel();
-            intake.stopIntake();
-        } else {
-            intake.setJamReversing(gamepad1.b || gamepad2.b);
         }
+        intake.updateTeleopCollectionInputs(intakeStartPressed, gamepad2.a,
+                stopFeedWasPressed, gamepad1.b || gamepad2.b,
+                flower.getPosition() == FlowerIntakeSubsystem2026.Position.DOWN);
         updateShooter(shot.rpm, aimRequested, gamepad1.rightBumperWasPressed());
 
         // Calculate shooting range before processing trigger inputs.

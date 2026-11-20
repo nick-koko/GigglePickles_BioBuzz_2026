@@ -15,6 +15,13 @@ Pending shot requests and cached controller-sample floors are separate fields.
 Existing column names and schema version 1 are retained; the converter reads both
 old and extended logs. These additions reuse cached samples without new hardware reads.
 
+Intake recovery adds `intake_capacity_override` and `ball_count_recovery_events`
+to basic rows, with `INTAKE_OVERRIDE` and `BALL_COUNT_RECOVERY` events. Detail rows
+also record the held override request, capacity reached, sustained-recovery settings,
+confirmed stack, last recovery counts/mask and each beam's confirmation timer.
+These are collection-eligible timers, reset during feed/reverse/diagnostic motion,
+not a claim of physical beam-clear events. See [Intake_LED_2026_Setup.md](Intake_LED_2026_Setup.md).
+
 ## Controls in Panels
 
 Open **RobotLogging2026**. Settings are shared by these OpModes.

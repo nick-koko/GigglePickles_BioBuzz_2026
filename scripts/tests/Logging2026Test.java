@@ -17,6 +17,7 @@ public final class Logging2026Test {
         sequenceStartOccupancy();
         eventsAndPause();
         shooterProfileEvents();
+        intakeRecoveryAndOverrideEvents();
         detailSwitchAvoidsMotorReads();
         configurationIncludesCalibration();
         deferredWrites();
@@ -53,6 +54,10 @@ public final class Logging2026Test {
         check("boost voltage gain aligned", row.get("boost_voltage_gain").equals(1.0));
         check("boost taper multiplier aligned", row.get("boost_overspeed_multiplier").equals(1.0));
         check("boost effective floor aligned", row.get("boost_floor_effective").equals(0.0));
+        check("ongoing beam recovery default enabled",row.get("sustained_beam_recovery_enabled").equals(true));
+        check("beam confirmation setting aligned",row.get("sustained_beam_confirm_s").equals(.1));
+        check("intake override request aligned",row.get("intake_override_held").equals(false));
+        check("cached beam confirmation timer aligned",row.get("beam_shooter_confirm_s").equals(0.0));
         check("no uninitialized turret angle invented", Double.isNaN((Double)row.get("turret_commanded_deg")));
         check("no nonexistent hood columns", Arrays.stream(RobotLogging2026.DETAIL_HEADER).noneMatch(s -> s.contains("hood")));
         logging.stop();
@@ -126,6 +131,23 @@ public final class Logging2026Test {
         Object[] last=rows.get(rows.size()-1);
         check("profile state stored in basic rows",last[Arrays.asList(RobotLogFrame2026.HEADER).indexOf("shooter_power_profile")].equals("RUNNING"));
         check("profile reason stored in basic rows",last[Arrays.asList(RobotLogFrame2026.HEADER).indexOf("shooter_startup_exit_reason")].equals("SETTLED"));
+    }
+
+    private static void intakeRecoveryAndOverrideEvents() {
+        List<Object[]> rows=new ArrayList<>();
+        MatchLogRecorder2026 recorder=new MatchLogRecorder2026((d,v)->{rows.add(v);return true;});
+        recorder.update(frame(0,0,false,15),true,1000);
+        RobotLogFrame2026 recovered=frame(1,0,false,15);
+        recovered.ballCount=4;recovered.ballCountRecoveryEvents=1;
+        recorder.update(recovered,true,1000);
+        RobotLogFrame2026 held=frame(2,0,false,15);
+        held.ballCount=4;held.ballCountRecoveryEvents=1;held.intakeCapacityOverride=true;
+        recorder.update(held,true,1000);
+        RobotLogFrame2026 released=frame(3,0,false,15);
+        released.ballCount=4;released.ballCountRecoveryEvents=1;
+        recorder.update(released,true,1000);
+        check("beam recovery event between periodic samples",count(rows,"BALL_COUNT_RECOVERY")==1);
+        check("held and released override events",count(rows,"INTAKE_OVERRIDE")==2);
     }
 
     private static void detailSwitchAvoidsMotorReads() throws Exception {
