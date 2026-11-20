@@ -39,18 +39,18 @@ public class IntakeWithSensorsSubsystem2026 implements Subsystem {
     }
 
     public static double INTAKE_FORWARD_RPM = 4000.0;
-    public static double TRANSFER_FORWARD_RPM = 4000.0;
+    public static double TRANSFER_FORWARD_RPM = 700.0;//main value 4000 => 1000
     public static double INTAKE_REVERSE_RPM = 3000.0;
     public static double TRANSFER_REVERSE_RPM = 700.0;
-    public static double SHOOT_INTAKE_POWER = 0.5;
-    public static double SHOOT_TRANSFER_POWER = 0.5;
+    public static double SHOOT_INTAKE_POWER = 0.5; //0.5
+    public static double SHOOT_TRANSFER_POWER = 0.5; //0.5
     public static boolean ENABLE_BALL_TRACKING = true;
     // After a feed or reset, balls that never moved produce no new beam edges.
     // Once the beams hold still this long, count the stack they show.
     public static double STATIONARY_RESYNC_SECONDS = 0.25;
 
-    public static double GATE_CLOSED_POSITION = 0.45; //0.15
-    public static double GATE_OPEN_POSITION = 0.15; //0.35
+    public static double GATE_CLOSED_POSITION = 0.15; //0.15 => 0.42
+    public static double GATE_OPEN_POSITION = 0.35; //0.35 => 0.15
 
     private static final double ENCODER_TICKS_PER_MOTOR_REV = 28.0;
     private static final double SHAFT_REDUCTION = 3.0;
@@ -246,6 +246,7 @@ public class IntakeWithSensorsSubsystem2026 implements Subsystem {
         appliedTransferRpm = 0.0;
         appliedIntakePower = 0.0;
         appliedTransferPower = 0.0;
+
         cachedBeamMask = 0;
         beamSampleNanos = 0L;
         appliedControlMode = "UNAVAILABLE";
@@ -268,6 +269,11 @@ public class IntakeWithSensorsSubsystem2026 implements Subsystem {
         appliedIntakePower = 0.0;
         appliedTransferPower = 0.0;
 
+        double collectingIntakeRpm = shouldStopIntakeForCapacity()
+                ? 0.0 : positiveRpm(INTAKE_FORWARD_RPM);
+        double collectingTransferRpm = shouldStopTransferForCapacity()
+                ? 0.0 : positiveRpm(TRANSFER_FORWARD_RPM);
+
         if (manualMotorTestMode != ManualMotorTestMode.NONE) {
             appliedControlMode = "VELOCITY";
             if (manualMotorTestMode == ManualMotorTestMode.INTAKE_FORWARD) {
@@ -285,7 +291,7 @@ public class IntakeWithSensorsSubsystem2026 implements Subsystem {
             return;
         }
 
-        if (jamReversing) {
+        if (isJamReversing()) {
             appliedControlMode = "VELOCITY";
             appliedIntakeRpm = -positiveRpm(INTAKE_REVERSE_RPM);
             appliedTransferRpm = -positiveRpm(TRANSFER_REVERSE_RPM);
@@ -298,12 +304,8 @@ public class IntakeWithSensorsSubsystem2026 implements Subsystem {
             transferMotor.setPower(appliedTransferPower);
         } else if (intakeMode == IntakeMode.FORWARD) {
             appliedControlMode = "VELOCITY";
-            appliedIntakeRpm = shouldStopIntakeForCapacity()
-                    ? 0.0
-                    : positiveRpm(INTAKE_FORWARD_RPM);
-            appliedTransferRpm = shouldStopTransferForCapacity()
-                    ? 0.0
-                    : positiveRpm(TRANSFER_FORWARD_RPM);
+            appliedIntakeRpm = collectingIntakeRpm;
+            appliedTransferRpm = collectingTransferRpm;
             setMotorVelocities(appliedIntakeRpm, appliedTransferRpm);
         } else {
             appliedControlMode = "VELOCITY";
@@ -311,7 +313,7 @@ public class IntakeWithSensorsSubsystem2026 implements Subsystem {
         }
 
         shooterGate.setPosition(clippedGatePosition(
-                feedingToShooter && !jamReversing
+                feedingToShooter && !isJamReversing()
                         ? GATE_OPEN_POSITION
                         : GATE_CLOSED_POSITION
         ));
@@ -359,7 +361,7 @@ public class IntakeWithSensorsSubsystem2026 implements Subsystem {
         boolean mayLatchNewBalls =
                 ENABLE_BALL_TRACKING
                         && !feedingToShooter
-                        && !jamReversing
+                        && !isJamReversing()
                         && manualMotorTestMode == ManualMotorTestMode.NONE;
 
         if (mayLatchNewBalls) {

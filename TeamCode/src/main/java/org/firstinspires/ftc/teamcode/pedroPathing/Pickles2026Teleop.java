@@ -36,14 +36,14 @@ public class Pickles2026Teleop extends NextFTCOpMode {
     public static double START_HEADING_DEGREES = 90.0;
 
     public static double DRIVE_POWER = 1.0;
-    public static double TURN_POWER = 0.5;
+    public static double TURN_POWER = 0.45;
     public static double SHOOTER_FALLBACK_RPM = 3175.0;
     public static double SHOOTER_RPM_STEP = 25.0;
     // GP2 D-pad adjusts this additive trim in either regression or table mode.
     public static double SHOOTER_RPM_TRIM = 0.0;
     public static boolean USE_SHOT_TABLE = false;
-    public static double REGRESSION_RPM_PER_INCH = 16.25; //16.5? -> Change to if we start missing low.
-    public static double REGRESSION_RPM_INTERCEPT = 2415; //2015
+    public static double REGRESSION_RPM_PER_INCH = 16.5; //16.5? -> Change to if we start missing low.
+    public static double REGRESSION_RPM_INTERCEPT = 2380; //2415
     // Shows only the values needed while tuning shots on the Driver Station.
     public static boolean SHOT_TUNING_TELEMETRY_ONLY = false;
 
@@ -62,6 +62,9 @@ public class Pickles2026Teleop extends NextFTCOpMode {
     public static boolean SHOOT_RANGE_WARNINGS_ENABLED = true;
     // Keeps ball-count LEDs visible while collecting. False warns anywhere out of range.
     public static boolean SHOOT_RANGE_WARNING_ONLY_WHILE_AIMING_OR_FIRING = true;
+    public static double LED_AIM_TOLERANCE_DEGREES = 2.0;
+    public static double LED_AIM_MAX_YAW_DEGREES_PER_SECOND = 10.0;
+    public static double LED_AIM_HOLD_SECONDS = 0.15;
 
     // false: custom P/D below. true: Pedro heading PIDF gains from Constants.
     public static boolean USE_PEDRO_AIM_PIDF = false;
@@ -95,6 +98,7 @@ public class Pickles2026Teleop extends NextFTCOpMode {
     private double previousAimTargetX;
     private double previousAimTargetY;
     private double automaticTurnRawPower;
+    private long ledAimAlignedSinceNanos;
     private final ShotSequenceController2026 shotSequence =
             new ShotSequenceController2026();
     private final RobotLogging2026 logging = new RobotLogging2026();
@@ -115,10 +119,12 @@ public class Pickles2026Teleop extends NextFTCOpMode {
 
     @Override
     public void onInit() {
+        validateShootingFeedbackSettings();
         // Restore the turret reference before consuming the autonomous handoff.
         // This only reads sensors; even a missing reference cannot move the turret in Init.
         TurretSubsystem2026.INSTANCE.prepareTeleop();
-        LEDControlSubsystem2026.INSTANCE.setShootRangeWarning(false);
+        LEDControlSubsystem2026.INSTANCE.setShootingFeedback(false, false);
+        ledAimAlignedSinceNanos = 0L;
         IntakeWithSensorsSubsystem2026.INSTANCE.stopAll();
         ShooterSubsystem2026.INSTANCE.stop();
         shotSequence.reset();
@@ -251,7 +257,7 @@ public class Pickles2026Teleop extends NextFTCOpMode {
         else {
             flower.moveUp();
         }
-        if (gamepad2.startWasPressed()) {
+        if (gamepad2.backWasPressed()) {
             PedroComponent.follower().setPose(resetPose);
         }
         double drive = -gamepad1.left_stick_y * DRIVE_POWER;
@@ -347,7 +353,8 @@ public class Pickles2026Teleop extends NextFTCOpMode {
                 false // Field centric
         );
 
-        if (gamepad1.aWasPressed() || gamepad2.aWasPressed() || (flower.getPosition() == FlowerIntakeSubsystem2026.Position.DOWN)) {
+        boolean intakeStartPressed = gamepad1.aWasPressed() || gamepad2.aWasPressed();
+        if (intakeStartPressed || (flower.getPosition() == FlowerIntakeSubsystem2026.Position.DOWN)) {
             intake.intakeForward();
         }
         boolean stopFeedWasPressed =
@@ -373,7 +380,9 @@ public class Pickles2026Teleop extends NextFTCOpMode {
 
         // The flywheel may remain spinning, but no balls may feed outside the range.
         // Also preserve the turret's existing firing interlock.
-        boolean canFire = !tooClose && !tooFar && turret.canShoot();
+        boolean distanceValid = limitsValid && Double.isFinite(targetDistanceInches);
+        boolean canFire = distanceValid && !tooClose && !tooFar && turret.canShoot()
+                && !stopFeedWasPressed && !intake.isJamReversing();
         if (!canFire) {
             shotSequence.cancel();
         }
@@ -385,10 +394,26 @@ public class Pickles2026Teleop extends NextFTCOpMode {
         );
 
         boolean firingRequested = shotSequence.isTriggerPressed(
-                gamepad1.right_trigger, gamepad2.right_trigger) && !tooFar && !tooClose;
-        leds.setShootRangeWarning(SHOOT_RANGE_WARNINGS_ENABLED && (tooClose || tooFar)
+                gamepad1.right_trigger, gamepad2.right_trigger);
+        boolean rangeWarning = SHOOT_RANGE_WARNINGS_ENABLED && (!distanceValid || tooClose || tooFar)
                 && (!SHOOT_RANGE_WARNING_ONLY_WHILE_AIMING_OR_FIRING
-                || aimRequested || firingRequested || shotSequence.isActive()));
+                || aimRequested || firingRequested || shotSequence.isActive());
+        // Always calculate manual chassis alignment too; a default heading error of zero
+        // does not mean the robot is pointing at the goal.
+        double shooterHeadingError = normalizeRadians(targetHeadingRadians
+                - turret.getChassisAimOffsetRadians() - pose.getHeading());
+        boolean aligned = turret.canShoot() && (trackingTurret ? turret.isAimAligned()
+                : Math.abs(Math.toDegrees(shooterHeadingError)) <= LED_AIM_TOLERANCE_DEGREES
+                && Math.abs(Math.toDegrees(angularVelocityRadiansPerSecond))
+                <= LED_AIM_MAX_YAW_DEGREES_PER_SECOND);
+        boolean showAlignment = distanceValid && !tooClose && !tooFar && aligned
+                && (aimRequested || shooter.isEnabled() || firingRequested || shotSequence.isActive())
+                && !intake.isJamReversing() && !stopFeedWasPressed;
+        long feedbackNow = System.nanoTime();
+        if (!showAlignment) ledAimAlignedSinceNanos = 0L;
+        else if (ledAimAlignedSinceNanos == 0L) ledAimAlignedSinceNanos = feedbackNow;
+        leds.setShootingFeedback(rangeWarning, showAlignment
+                && (feedbackNow - ledAimAlignedSinceNanos) / 1e9 >= LED_AIM_HOLD_SECONDS);
         String shootingRangeStatus = !SHOOT_RANGE_WARNINGS_ENABLED ? "DISABLED"
                 : !limitsValid ? "INVALID LIMITS"
                 : MIN_SHOOT_DISTANCE_INCHES == 0 && MAX_SHOOT_DISTANCE_INCHES == 0 ? "SET MIN/MAX LIMITS"
@@ -561,7 +586,7 @@ public class Pickles2026Teleop extends NextFTCOpMode {
     @Override
     public void onStop() {
         logging.stop();
-        LEDControlSubsystem2026.INSTANCE.setShootRangeWarning(false);
+        LEDControlSubsystem2026.INSTANCE.setShootingFeedback(false, false);
         TurretSubsystem2026.INSTANCE.stop();
         shotSequence.cancel();
         IntakeWithSensorsSubsystem2026.INSTANCE.stopAll();
@@ -577,11 +602,27 @@ public class Pickles2026Teleop extends NextFTCOpMode {
         );
     }
 
+    private static void validateShootingFeedbackSettings() {
+        if (!Double.isFinite(MIN_SHOOT_DISTANCE_INCHES) || MIN_SHOOT_DISTANCE_INCHES < 0
+                || !Double.isFinite(MAX_SHOOT_DISTANCE_INCHES) || MAX_SHOOT_DISTANCE_INCHES < 0
+                || (MIN_SHOOT_DISTANCE_INCHES > 0 && MAX_SHOOT_DISTANCE_INCHES > 0
+                && MIN_SHOOT_DISTANCE_INCHES > MAX_SHOOT_DISTANCE_INCHES)) {
+            throw new IllegalArgumentException("Shooting range needs finite min/max >= 0, with min <= max");
+        }
+        if (!Double.isFinite(LED_AIM_TOLERANCE_DEGREES) || LED_AIM_TOLERANCE_DEGREES <= 0
+                || !Double.isFinite(LED_AIM_MAX_YAW_DEGREES_PER_SECOND)
+                || LED_AIM_MAX_YAW_DEGREES_PER_SECOND < 0
+                || !Double.isFinite(LED_AIM_HOLD_SECONDS) || LED_AIM_HOLD_SECONDS < 0) {
+            throw new IllegalArgumentException("LED aim tolerance, yaw limit, or hold time is invalid");
+        }
+    }
+
     private void addShootingRangeTelemetry(String status) {
         telemetry.addData("Shooting range", status);
         telemetry.addData("Shooting range limits", "min %.1f / max %.1f in (0 = disabled)",
                 MIN_SHOOT_DISTANCE_INCHES, MAX_SHOOT_DISTANCE_INCHES);
         telemetry.addData("Range warning LEDs", LEDControlSubsystem2026.INSTANCE.isShootRangeWarningActive());
+        telemetry.addData("Aligned white flash", LEDControlSubsystem2026.INSTANCE.isShootAlignedActive());
     }
 
     private static void updateShooter(double rpm, boolean aimRequested, boolean toggleRequested) {

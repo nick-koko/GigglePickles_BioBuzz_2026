@@ -16,18 +16,18 @@ public final class TurretSubsystem2026 implements Subsystem {
     public static final TurretSubsystem2026 INSTANCE = new TurretSubsystem2026();
 
     // Select before Init. FIXED uses only the two servos, so it also works without encoders.
-    public static TurretController2026.Mode MODE = TurretController2026.Mode.TRACKING;
+    public static TurretController2026.Mode MODE = TurretController2026.Mode.CHASSIS_ONLY;
     public static String LEFT_SERVO_NAME = "Lurret";
     public static String RIGHT_SERVO_NAME = "Rurret";
     // Read only: this is also a drive motor. Never reset its count or change its mode/direction here.
-    public static String ENCODER_NAME = "back_left";
+    public static String ENCODER_NAME = "shooter_motor2";
     public static String ABSOLUTE_ENCODER_NAME = "analog_turret_encoder";
     public static double ENCODER_CPR = 4096.0;
     public static double ENCODER_TO_TURRET_RATIO = 81.0 / 45.0;
     public static double QUAD_DIRECTION_SIGN = 1.0;
     public static double ABSOLUTE_DIRECTION_SIGN = 1.0;
     public static double ABSOLUTE_MAX_VOLTAGE = 3.255;
-    public static double ABSOLUTE_TURRET_OFFSET_DEGREES = -36.0;
+    public static double ABSOLUTE_TURRET_OFFSET_DEGREES = -154.94;
     // Captured at Init. Runtime encoder faults fall back to positional servo aiming.
     public static boolean ENABLE_ENCODER_FALLBACK = true;
     public static double ENCODER_DISAGREEMENT_DEGREES = 8.0;
@@ -73,43 +73,32 @@ public final class TurretSubsystem2026 implements Subsystem {
     @Override
     public void initialize() {
         config = configuration();
-        TurretController2026.Mode selected = MODE == null
-                ? TurretController2026.Mode.CHASSIS_ONLY : MODE;
-        try {
-            TurretController2026.Hardware hardware = null;
-            if (selected != TurretController2026.Mode.CHASSIS_ONLY) {
-                // Mapping and sensor reads only: no position, direction, or PWM writes in Init.
-                Servo left = ActiveOpMode.hardwareMap().get(Servo.class, LEFT_SERVO_NAME);
-                Servo right = ActiveOpMode.hardwareMap().get(Servo.class, RIGHT_SERVO_NAME);
-                DcMotor encoder = selected == TurretController2026.Mode.TRACKING
-                        ? ActiveOpMode.hardwareMap().get(DcMotor.class, ENCODER_NAME) : null;
-                AnalogInput absolute = selected == TurretController2026.Mode.TRACKING
-                        ? ActiveOpMode.hardwareMap().get(AnalogInput.class, ABSOLUTE_ENCODER_NAME) : null;
-                hardware = new TurretController2026.Hardware() {
-                    private boolean directionsConfigured;
-                    public int encoderTicks() { return encoder.getCurrentPosition(); }
-                    public double absoluteVoltage() { return absolute.getVoltage(); }
-                    public void writeServos(double l, double r) {
-                        // Only reached after the controller has enabled outputs.
-                        if (!directionsConfigured) {
-                            left.setDirection(Servo.Direction.FORWARD);
-                            right.setDirection(Servo.Direction.FORWARD);
-                            directionsConfigured = true;
-                        }
-                        left.setPosition(l);
-                        right.setPosition(r);
+        TurretController2026.Mode selected = java.util.Objects.requireNonNull(MODE, "Turret MODE must be set");
+        TurretController2026.Hardware hardware = null;
+        if (selected != TurretController2026.Mode.CHASSIS_ONLY) {
+            // Required device lookups fail during Init. Servo writes are gated by the controller.
+            Servo left = ActiveOpMode.hardwareMap().get(Servo.class, LEFT_SERVO_NAME);
+            Servo right = ActiveOpMode.hardwareMap().get(Servo.class, RIGHT_SERVO_NAME);
+            DcMotor encoder = selected == TurretController2026.Mode.TRACKING
+                    ? ActiveOpMode.hardwareMap().get(DcMotor.class, ENCODER_NAME) : null;
+            AnalogInput absolute = selected == TurretController2026.Mode.TRACKING
+                    ? ActiveOpMode.hardwareMap().get(AnalogInput.class, ABSOLUTE_ENCODER_NAME) : null;
+            hardware = new TurretController2026.Hardware() {
+                private boolean directionsConfigured;
+                public int encoderTicks() { return encoder.getCurrentPosition(); }
+                public double absoluteVoltage() { return absolute.getVoltage(); }
+                public void writeServos(double l, double r) {
+                    if (!directionsConfigured) {
+                        left.setDirection(Servo.Direction.FORWARD);
+                        right.setDirection(Servo.Direction.FORWARD);
+                        directionsConfigured = true;
                     }
-                };
-            }
-            controller = new TurretController2026(selected, config, hardware, now());
-        } catch (IllegalArgumentException exception) {
-            controller = new TurretController2026(selected, config, new TurretController2026.Hardware() {
-                public int encoderTicks() { return 0; }
-                public double absoluteVoltage() { return Double.NaN; }
-                public void writeServos(double l, double r) { /* Fault prevents output. */ }
-            }, now());
-            controller.fail("Turret hardware unavailable: " + exception.getMessage());
+                    left.setPosition(l);
+                    right.setPosition(r);
+                }
+            };
         }
+        controller = new TurretController2026(selected, config, hardware, now());
     }
 
     public void prepareTeleop() {
@@ -141,6 +130,11 @@ public final class TurretSubsystem2026 implements Subsystem {
 
     public boolean usesTurretAim() { return controller.getMode() == TurretController2026.Mode.TRACKING; }
     public boolean canShoot() { return controller.canShoot(now()); }
+    public boolean isAimAligned() {
+        return canShoot() && controller.isTargetReachable() && controller.isAimReady()
+                && Math.abs(controller.getTarget() - controller.getMeasuredAngle()) <= READY_TOLERANCE_DEGREES
+                && Math.abs(controller.getVelocity()) <= READY_SPEED_DEGREES_PER_SECOND;
+    }
     public double getChassisAimOffsetRadians() {
         return Math.toRadians(controller.getMode() == TurretController2026.Mode.FIXED
                 ? controller.getFixedRobotRelativeHeading() : CHASSIS_ONLY_SHOOTER_HEADING_DEGREES);
@@ -161,6 +155,10 @@ public final class TurretSubsystem2026 implements Subsystem {
         telemetry.addData("Turret state", controller.getState());
         telemetry.addData("Turret status", controller.getStatus());
         if (controller.getMode() == TurretController2026.Mode.CHASSIS_ONLY) return;
+        if (controller.getMode() == TurretController2026.Mode.TRACKING
+                && controller.getState() != TurretController2026.State.FAULT) {
+            telemetry.addData("Turret quadrature ticks", controller.getCachedEncoderTicks());
+        }
         telemetry.addData("Turret handoff restored", controller.isRestoredFromAutonomous());
         telemetry.addData("Turret angle / target", "%.1f / %.1f deg",
                 controller.getMeasuredAngle(), controller.getTarget());

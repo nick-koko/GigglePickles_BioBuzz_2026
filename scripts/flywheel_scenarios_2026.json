@@ -1,0 +1,8 @@
+{
+  "auto-start": {"label":"Start of autonomous","voltage":13.8,"initial":0,"target":3196,"ramp":0},
+  "auto-late": {"label":"Late autonomous, already spinning","voltage":12.6,"initial":3150,"target":3150,"ramp":1},
+  "tele-start": {"label":"Start of teleop","voltage":12.5,"initial":0,"target":3196,"ramp":0},
+  "tele-early": {"label":"Early teleop, already spinning","voltage":12.2,"initial":3150,"target":3370,"ramp":1},
+  "tele-late": {"label":"Late teleop, already spinning","voltage":11.8,"initial":3150,"target":3350,"ramp":1},
+  "tele-low": {"label":"Low-voltage late teleop","voltage":11.4,"initial":3150,"target":3600,"ramp":1}
+}

@@ -1,0 +1,972 @@
+{
+  "schema_version": 1,
+  "date": "2026-11-20",
+  "motor": {
+    "sku": "5000-0002-4008",
+    "url": "https://www.gobilda.com/5000-series-12vdc-motor-with-8mm-rex-pinion-shaft/",
+    "nominal_v": 12,
+    "tested_free_rpm": 5800,
+    "stall_current_a": 9.2,
+    "no_load_current_a": 0.25,
+    "stall_torque_nm": 0.144157755
+  },
+  "hardware": {
+    "wheel_url": "https://www.gobilda.com/3601-series-rhino-wheel-14mm-bore-72mm-diameter/",
+    "wheel_diameter_m": 0.072,
+    "wheel_catalog_mass_kg": 0.085,
+    "weight_count": 4,
+    "weight_mass_lb": 0.166,
+    "weight_id_m": 0.033,
+    "weight_od_m": 0.0555,
+    "known_ring_inertia_kg_m2": 0.00015696461905566754,
+    "as_built_confirmed_by_user": true
+  },
+  "plant": {
+    "inertia_kg_m2": 0.00018889325554342123,
+    "ke_v_s_rad": 0.01865027527967519,
+    "kt_nm_a": 0.015669321195652175,
+    "resistance_ohm": 1.3043478260869565,
+    "drag_nm": 0.005578407278675298,
+    "sensor_tau_s": 0.012,
+    "sensor_delay_s": 0.05164787956888935,
+    "calibrated_weight_count": 4,
+    "weight_inertia_kg_m2": 3.9241154763916884e-05
+  },
+  "load": {
+    "reference_rpm": 3196,
+    "centers_s": [
+      0.1067629587776902,
+      0.3008311799007013,
+      0.43856309674876787,
+      0.5373418434647378
+    ],
+    "widths_s": [
+      0.015635337345000427,
+      0.02493097599875069,
+      0.012000000000000002,
+      0.049893215397356715
+    ],
+    "amplitudes_nm": [
+      0.11035823404377072,
+      0.08864819738726115,
+      0.12540861538604806,
+      0.05738122684930161
+    ]
+  },
+  "load_profiles": [
+    {
+      "run": "20261119_171736_694_Pickles2026Teleop_90f06062",
+      "label": "volley5",
+      "training": true,
+      "profile": {
+        "reference_rpm": 3196,
+        "centers_s": [
+          0.0934423650494021,
+          0.2875105861724132,
+          0.4252425030204798,
+          0.5240212497364497
+        ],
+        "widths_s": [
+          0.015635337345000427,
+          0.02493097599875069,
+          0.012000000000000002,
+          0.049893215397356715
+        ],
+        "amplitudes_nm": [
+          0.06862654948477973,
+          0.07888399224603489,
+          0.12102959484027898,
+          0.05468116784826492
+        ]
+      },
+      "rmse": 23.936846745211792
+    },
+    {
+      "run": "20261119_171736_694_Pickles2026Teleop_90f06062",
+      "label": "volley7",
+      "training": true,
+      "profile": {
+        "reference_rpm": 3196,
+        "centers_s": [
+          0.10256728012048083,
+          0.2966355012434919,
+          0.4343674180915585,
+          0.5331461648075284
+        ],
+        "widths_s": [
+          0.015635337345000427,
+          0.02493097599875069,
+          0.012000000000000002,
+          0.049893215397356715
+        ],
+        "amplitudes_nm": [
+          0.1313537854654823,
+          0.0838998583620794,
+          0.10445027820143248,
+          0.0628010225592104
+        ]
+      },
+      "rmse": 24.662364143587332
+    },
+    {
+      "run": "20261119_171736_694_Pickles2026Teleop_90f06062",
+      "label": "volley8",
+      "training": true,
+      "profile": {
+        "reference_rpm": 3196,
+        "centers_s": [
+          0.10231390559371123,
+          0.2963821267167223,
+          0.4341140435647889,
+          0.5328927902807589
+        ],
+        "widths_s": [
+          0.015635337345000427,
+          0.02493097599875069,
+          0.012000000000000002,
+          0.049893215397356715
+        ],
+        "amplitudes_nm": [
+          0.1337311806467996,
+          0.09057360711031025,
+          0.08169799798870465,
+          0.06344854744211792
+        ]
+      },
+      "rmse": 22.160533812661843
+    },
+    {
+      "run": "20261119_171736_694_Pickles2026Teleop_90f06062",
+      "label": "volley9",
+      "training": true,
+      "profile": {
+        "reference_rpm": 3196,
+        "centers_s": [
+          0.10667123199770273,
+          0.3007394531207138,
+          0.4384713699687804,
+          0.5372501166847503
+        ],
+        "widths_s": [
+          0.015635337345000427,
+          0.02493097599875069,
+          0.012000000000000002,
+          0.049893215397356715
+        ],
+        "amplitudes_nm": [
+          0.09891502455369161,
+          0.09123405411808759,
+          0.10805348515912612,
+          0.06745037103437036
+        ]
+      },
+      "rmse": 22.610448493892633
+    },
+    {
+      "run": "20261119_171736_694_Pickles2026Teleop_90f06062",
+      "label": "volley12",
+      "training": true,
+      "profile": {
+        "reference_rpm": 3196,
+        "centers_s": [
+          0.11595667635875315,
+          0.31002489748176426,
+          0.44775681432983083,
+          0.5465355610458007
+        ],
+        "widths_s": [
+          0.015635337345000427,
+          0.02493097599875069,
+          0.012000000000000002,
+          0.049893215397356715
+        ],
+        "amplitudes_nm": [
+          0.10940828901600175,
+          0.09009867854232845,
+          0.15135738444882357,
+          0.054656833347672074
+        ]
+      },
+      "rmse": 26.475347597451247
+    },
+    {
+      "run": "20261119_181508_509_CloseShootingAlone_ccd9ef11",
+      "label": "volley2",
+      "training": true,
+      "profile": {
+        "reference_rpm": 3196,
+        "centers_s": [
+          0.13548287243891874,
+          0.32955109356192985,
+          0.4672830104099964,
+          0.5660617571259663
+        ],
+        "widths_s": [
+          0.015635337345000427,
+          0.02493097599875069,
+          0.012000000000000002,
+          0.049893215397356715
+        ],
+        "amplitudes_nm": [
+          0.10767906870309034,
+          0.07538705186148736,
+          0.0916251922154819,
+          0.06857633581017201
+        ]
+      },
+      "rmse": 22.669005888368627
+    },
+    {
+      "run": "20261119_181546_484_Pickles2026Teleop_2092ccd9",
+      "label": "volley4",
+      "training": true,
+      "profile": {
+        "reference_rpm": 3196,
+        "centers_s": [
+          0.10079449987975111,
+          0.29486272100276223,
+          0.4325946378508288,
+          0.5313733845667987
+        ],
+        "widths_s": [
+          0.015635337345000427,
+          0.02493097599875069,
+          0.012000000000000002,
+          0.049893215397356715
+        ],
+        "amplitudes_nm": [
+          0.12634182358223792,
+          0.08287566689642457,
+          0.11064642178579433,
+          0.0675695046194738
+        ]
+      },
+      "rmse": 37.67118265058122
+    },
+    {
+      "run": "20261119_181546_484_Pickles2026Teleop_2092ccd9",
+      "label": "volley8",
+      "training": true,
+      "profile": {
+        "reference_rpm": 3196,
+        "centers_s": [
+          0.11719841273731989,
+          0.311266633860331,
+          0.44899855070839756,
+          0.5477772974243675
+        ],
+        "widths_s": [
+          0.015635337345000427,
+          0.02493097599875069,
+          0.012000000000000002,
+          0.049893215397356715
+        ],
+        "amplitudes_nm": [
+          0.12967955074525359,
+          0.08771792343041175,
+          0.16336580011354146,
+          0.056575510380404946
+        ]
+      },
+      "rmse": 26.350268934869117
+    },
+    {
+      "run": "20261119_181546_484_Pickles2026Teleop_2092ccd9",
+      "label": "volley10",
+      "training": true,
+      "profile": {
+        "reference_rpm": 3196,
+        "centers_s": [
+          0.08531983510561432,
+          0.27938805622862545,
+          0.417119973076692,
+          0.5158987197926619
+        ],
+        "widths_s": [
+          0.015635337345000427,
+          0.02493097599875069,
+          0.012000000000000002,
+          0.049893215397356715
+        ],
+        "amplitudes_nm": [
+          0.10240957088149588,
+          0.08965520638631255,
+          0.1366307993499413,
+          0.05428017264175493
+        ]
+      },
+      "rmse": 26.249365298721546
+    },
+    {
+      "run": "20261119_181546_484_Pickles2026Teleop_2092ccd9",
+      "label": "volley12",
+      "training": true,
+      "profile": {
+        "reference_rpm": 3196,
+        "centers_s": [
+          0.1297308744627737,
+          0.3237990955857848,
+          0.46153101243385136,
+          0.5603097591498213
+        ],
+        "widths_s": [
+          0.015635337345000427,
+          0.02493097599875069,
+          0.012000000000000002,
+          0.049893215397356715
+        ],
+        "amplitudes_nm": [
+          0.10213715853405239,
+          0.09117866459061977,
+          0.13199310714686133,
+          0.0474116332406392
+        ]
+      },
+      "rmse": 25.131323200731117
+    },
+    {
+      "run": "20261119_183802_809_Pickles2026Teleop_12a5634c",
+      "label": "volley7",
+      "training": false,
+      "profile": {
+        "reference_rpm": 3196,
+        "centers_s": [
+          0.0948716649732865,
+          0.2889398860962976,
+          0.4266718029443642,
+          0.5254505496603341
+        ],
+        "widths_s": [
+          0.015635337345000427,
+          0.02493097599875069,
+          0.012000000000000002,
+          0.049893215397356715
+        ],
+        "amplitudes_nm": [
+          0.1095458127180002,
+          0.09216164685609432,
+          0.14979640238121536,
+          0.05718059737596831
+        ]
+      },
+      "rmse": 24.444595609264113
+    },
+    {
+      "run": "20261119_183802_809_Pickles2026Teleop_12a5634c",
+      "label": "volley9",
+      "training": false,
+      "profile": {
+        "reference_rpm": 3196,
+        "centers_s": [
+          0.10200555392434511,
+          0.2960737750473562,
+          0.4338056918954228,
+          0.5325844386113927
+        ],
+        "widths_s": [
+          0.015635337345000427,
+          0.02493097599875069,
+          0.012000000000000002,
+          0.049893215397356715
+        ],
+        "amplitudes_nm": [
+          0.07728518920509439,
+          0.10000939818993067,
+          0.15327020914892736,
+          0.04801680455168628
+        ]
+      },
+      "rmse": 30.178385815840972
+    },
+    {
+      "run": "20261119_191901_971_Pickles2026Teleop_34fb400a",
+      "label": "volley3",
+      "training": true,
+      "profile": {
+        "reference_rpm": 3196,
+        "centers_s": [
+          0.08361266590593322,
+          0.27768088702894433,
+          0.4154128038770109,
+          0.5141915505929808
+        ],
+        "widths_s": [
+          0.015635337345000427,
+          0.02493097599875069,
+          0.012000000000000002,
+          0.049893215397356715
+        ],
+        "amplitudes_nm": [
+          0.12760200176361572,
+          0.10114331296560031,
+          0.15121466384161678,
+          0.0470688136188749
+        ]
+      },
+      "rmse": 19.933772429588757
+    },
+    {
+      "run": "20261119_191901_971_Pickles2026Teleop_34fb400a",
+      "label": "volley9",
+      "training": true,
+      "profile": {
+        "reference_rpm": 3196,
+        "centers_s": [
+          0.08809924498567384,
+          0.28216746610868493,
+          0.4198993829567515,
+          0.5186781296727214
+        ],
+        "widths_s": [
+          0.015635337345000427,
+          0.02493097599875069,
+          0.012000000000000002,
+          0.049893215397356715
+        ],
+        "amplitudes_nm": [
+          0.08857016313683024,
+          0.08938252183131878,
+          0.16097697735846075,
+          0.05130712908196408
+        ]
+      },
+      "rmse": 27.10468002110101
+    },
+    {
+      "run": "20261119_193130_819_Pickles2026Teleop_b36d1826",
+      "label": "volley10",
+      "training": false,
+      "profile": {
+        "reference_rpm": 3196,
+        "centers_s": [
+          0.1313957338792549,
+          0.325463955002266,
+          0.46319587185033256,
+          0.5619746185663025
+        ],
+        "widths_s": [
+          0.015635337345000427,
+          0.02493097599875069,
+          0.012000000000000002,
+          0.049893215397356715
+        ],
+        "amplitudes_nm": [
+          0.1036032070701227,
+          0.08677812050396573,
+          0.09281510992347726,
+          0.0654348856825934
+        ]
+      },
+      "rmse": 26.090414094044153
+    },
+    {
+      "run": "20261119_193130_819_Pickles2026Teleop_b36d1826",
+      "label": "volley11",
+      "training": false,
+      "profile": {
+        "reference_rpm": 3196,
+        "centers_s": [
+          0.13752850125133886,
+          0.33159672237434995,
+          0.4693286392224165,
+          0.5681073859383865
+        ],
+        "widths_s": [
+          0.015635337345000427,
+          0.02493097599875069,
+          0.012000000000000002,
+          0.049893215397356715
+        ],
+        "amplitudes_nm": [
+          0.12884180490406957,
+          0.09690993893737714,
+          0.13572022667252534,
+          0.05976408961175367
+        ]
+      },
+      "rmse": 24.70532642814543
+    }
+  ],
+  "plant_fit": {
+    "success": true,
+    "evaluations": 16,
+    "cost": 125.90678631880093
+  },
+  "load_fit": {
+    "success": true,
+    "evaluations": 34,
+    "cost": 249.64962815229805
+  },
+  "validation": {
+    "plant": [
+      {
+        "run": "20261119_171659_262_CloseShootingAlone_4892304d",
+        "label": "startup",
+        "match": 1,
+        "training": true,
+        "rmse_rpm": 35.210435533870935,
+        "bias_rpm": -15.254974226865139,
+        "samples": 61
+      },
+      {
+        "run": "20261119_171736_694_Pickles2026Teleop_90f06062",
+        "label": "tail5",
+        "match": 1,
+        "training": true,
+        "rmse_rpm": 17.163937011209523,
+        "bias_rpm": 5.051888531439475,
+        "samples": 13
+      },
+      {
+        "run": "20261119_171736_694_Pickles2026Teleop_90f06062",
+        "label": "tail7",
+        "match": 1,
+        "training": true,
+        "rmse_rpm": 41.334490040433025,
+        "bias_rpm": -34.4426806968258,
+        "samples": 11
+      },
+      {
+        "run": "20261119_171736_694_Pickles2026Teleop_90f06062",
+        "label": "tail8",
+        "match": 1,
+        "training": true,
+        "rmse_rpm": 22.221084763328296,
+        "bias_rpm": -6.698458493966352,
+        "samples": 12
+      },
+      {
+        "run": "20261119_171736_694_Pickles2026Teleop_90f06062",
+        "label": "tail9",
+        "match": 1,
+        "training": true,
+        "rmse_rpm": 21.340201328431,
+        "bias_rpm": 1.4092719975517205,
+        "samples": 11
+      },
+      {
+        "run": "20261119_171736_694_Pickles2026Teleop_90f06062",
+        "label": "tail12",
+        "match": 1,
+        "training": true,
+        "rmse_rpm": 9.809384805495707,
+        "bias_rpm": 4.671336739857634,
+        "samples": 10
+      },
+      {
+        "run": "20261119_174322_362_CloseShootingAlone_9dadd8c9",
+        "label": "startup",
+        "match": 2,
+        "training": false,
+        "rmse_rpm": 31.63105785414367,
+        "bias_rpm": 16.622487723060114,
+        "samples": 64
+      },
+      {
+        "run": "20261119_181508_509_CloseShootingAlone_ccd9ef11",
+        "label": "startup",
+        "match": 3,
+        "training": true,
+        "rmse_rpm": 39.2195420708404,
+        "bias_rpm": 23.881118097999263,
+        "samples": 66
+      },
+      {
+        "run": "20261119_181508_509_CloseShootingAlone_ccd9ef11",
+        "label": "tail2",
+        "match": 3,
+        "training": true,
+        "rmse_rpm": 33.3010686540367,
+        "bias_rpm": -28.970427675911196,
+        "samples": 12
+      },
+      {
+        "run": "20261119_181546_484_Pickles2026Teleop_2092ccd9",
+        "label": "tail4",
+        "match": 3,
+        "training": true,
+        "rmse_rpm": 39.98292525070446,
+        "bias_rpm": -29.44783961049355,
+        "samples": 12
+      },
+      {
+        "run": "20261119_181546_484_Pickles2026Teleop_2092ccd9",
+        "label": "tail8",
+        "match": 3,
+        "training": true,
+        "rmse_rpm": 22.63517563007318,
+        "bias_rpm": -4.397712482388879,
+        "samples": 13
+      },
+      {
+        "run": "20261119_181546_484_Pickles2026Teleop_2092ccd9",
+        "label": "tail10",
+        "match": 3,
+        "training": true,
+        "rmse_rpm": 23.156935776180397,
+        "bias_rpm": 16.07693607145431,
+        "samples": 12
+      },
+      {
+        "run": "20261119_181546_484_Pickles2026Teleop_2092ccd9",
+        "label": "tail12",
+        "match": 3,
+        "training": true,
+        "rmse_rpm": 25.57751510153989,
+        "bias_rpm": 0.29971010722159586,
+        "samples": 11
+      },
+      {
+        "run": "20261119_183725_413_CloseShootingAlone_bcfb4bd5",
+        "label": "startup",
+        "match": 4,
+        "training": false,
+        "rmse_rpm": 37.3954281638507,
+        "bias_rpm": 17.8099244430335,
+        "samples": 67
+      },
+      {
+        "run": "20261119_183802_809_Pickles2026Teleop_12a5634c",
+        "label": "tail7",
+        "match": 4,
+        "training": false,
+        "rmse_rpm": 21.633771406960445,
+        "bias_rpm": -2.539766620148915,
+        "samples": 12
+      },
+      {
+        "run": "20261119_183802_809_Pickles2026Teleop_12a5634c",
+        "label": "tail9",
+        "match": 4,
+        "training": false,
+        "rmse_rpm": 26.781670045667084,
+        "bias_rpm": -19.22687171602338,
+        "samples": 10
+      },
+      {
+        "run": "20261119_191824_467_CloseShootingAlone_7a9a718f",
+        "label": "startup",
+        "match": 5,
+        "training": true,
+        "rmse_rpm": 26.19821455528891,
+        "bias_rpm": 5.547217092856798,
+        "samples": 63
+      },
+      {
+        "run": "20261119_191901_971_Pickles2026Teleop_34fb400a",
+        "label": "tail3",
+        "match": 5,
+        "training": true,
+        "rmse_rpm": 29.869002891714185,
+        "bias_rpm": -22.062268140416954,
+        "samples": 14
+      },
+      {
+        "run": "20261119_191901_971_Pickles2026Teleop_34fb400a",
+        "label": "tail9",
+        "match": 5,
+        "training": true,
+        "rmse_rpm": 17.391557643710442,
+        "bias_rpm": -4.658103822393222,
+        "samples": 14
+      },
+      {
+        "run": "20261119_193052_788_CloseShootingAlone_27852270",
+        "label": "startup",
+        "match": 6,
+        "training": false,
+        "rmse_rpm": 38.42967919781811,
+        "bias_rpm": 23.800631872641777,
+        "samples": 67
+      },
+      {
+        "run": "20261119_193130_819_Pickles2026Teleop_b36d1826",
+        "label": "tail10",
+        "match": 6,
+        "training": false,
+        "rmse_rpm": 31.229166972103023,
+        "bias_rpm": -9.478654319030738,
+        "samples": 10
+      },
+      {
+        "run": "20261119_193130_819_Pickles2026Teleop_b36d1826",
+        "label": "tail11",
+        "match": 6,
+        "training": false,
+        "rmse_rpm": 15.572268457737021,
+        "bias_rpm": 9.080352411435133,
+        "samples": 13
+      }
+    ],
+    "load_common": [
+      {
+        "run": "20261119_171736_694_Pickles2026Teleop_90f06062",
+        "label": "volley5",
+        "match": 1,
+        "training": true,
+        "rmse_rpm": 62.25561986991255,
+        "bias_rpm": -54.926909755157915,
+        "samples": 38
+      },
+      {
+        "run": "20261119_171736_694_Pickles2026Teleop_90f06062",
+        "label": "volley7",
+        "match": 1,
+        "training": true,
+        "rmse_rpm": 30.191075105554788,
+        "bias_rpm": 13.241504507697238,
+        "samples": 37
+      },
+      {
+        "run": "20261119_171736_694_Pickles2026Teleop_90f06062",
+        "label": "volley8",
+        "match": 1,
+        "training": true,
+        "rmse_rpm": 31.87459023283526,
+        "bias_rpm": 15.956015686649064,
+        "samples": 41
+      },
+      {
+        "run": "20261119_171736_694_Pickles2026Teleop_90f06062",
+        "label": "volley9",
+        "match": 1,
+        "training": true,
+        "rmse_rpm": 28.408732487776298,
+        "bias_rpm": 4.380844735363054,
+        "samples": 41
+      },
+      {
+        "run": "20261119_171736_694_Pickles2026Teleop_90f06062",
+        "label": "volley12",
+        "match": 1,
+        "training": true,
+        "rmse_rpm": 30.781920263405638,
+        "bias_rpm": 3.5039742399932527,
+        "samples": 39
+      },
+      {
+        "run": "20261119_181508_509_CloseShootingAlone_ccd9ef11",
+        "label": "volley2",
+        "match": 3,
+        "training": true,
+        "rmse_rpm": 55.147789671726954,
+        "bias_rpm": -19.626159337548085,
+        "samples": 47
+      },
+      {
+        "run": "20261119_181546_484_Pickles2026Teleop_2092ccd9",
+        "label": "volley4",
+        "match": 3,
+        "training": true,
+        "rmse_rpm": 42.71900519023176,
+        "bias_rpm": 20.921139881826733,
+        "samples": 44
+      },
+      {
+        "run": "20261119_181546_484_Pickles2026Teleop_2092ccd9",
+        "label": "volley8",
+        "match": 3,
+        "training": true,
+        "rmse_rpm": 44.07957468921953,
+        "bias_rpm": 26.784149800511347,
+        "samples": 45
+      },
+      {
+        "run": "20261119_181546_484_Pickles2026Teleop_2092ccd9",
+        "label": "volley10",
+        "match": 3,
+        "training": true,
+        "rmse_rpm": 40.04223829878168,
+        "bias_rpm": 3.305484913285687,
+        "samples": 43
+      },
+      {
+        "run": "20261119_181546_484_Pickles2026Teleop_2092ccd9",
+        "label": "volley12",
+        "match": 3,
+        "training": true,
+        "rmse_rpm": 45.0464175028303,
+        "bias_rpm": -27.361322052418718,
+        "samples": 48
+      },
+      {
+        "run": "20261119_183802_809_Pickles2026Teleop_12a5634c",
+        "label": "volley7",
+        "match": 4,
+        "training": false,
+        "rmse_rpm": 35.66458249286071,
+        "bias_rpm": 17.444527921263443,
+        "samples": 40
+      },
+      {
+        "run": "20261119_183802_809_Pickles2026Teleop_12a5634c",
+        "label": "volley9",
+        "match": 4,
+        "training": false,
+        "rmse_rpm": 39.81532190494083,
+        "bias_rpm": -24.867430003842994,
+        "samples": 39
+      },
+      {
+        "run": "20261119_191901_971_Pickles2026Teleop_34fb400a",
+        "label": "volley3",
+        "match": 5,
+        "training": true,
+        "rmse_rpm": 60.33783737773795,
+        "bias_rpm": 31.974411155412433,
+        "samples": 47
+      },
+      {
+        "run": "20261119_191901_971_Pickles2026Teleop_34fb400a",
+        "label": "volley9",
+        "match": 5,
+        "training": true,
+        "rmse_rpm": 38.17415664974045,
+        "bias_rpm": -8.308469570168684,
+        "samples": 46
+      },
+      {
+        "run": "20261119_193130_819_Pickles2026Teleop_b36d1826",
+        "label": "volley10",
+        "match": 6,
+        "training": false,
+        "rmse_rpm": 47.69732288837605,
+        "bias_rpm": -10.836629087801358,
+        "samples": 43
+      },
+      {
+        "run": "20261119_193130_819_Pickles2026Teleop_b36d1826",
+        "label": "volley11",
+        "match": 6,
+        "training": false,
+        "rmse_rpm": 53.55845627903426,
+        "bias_rpm": 23.056032916391626,
+        "samples": 48
+      }
+    ],
+    "closed_loop": [
+      {
+        "group": "startup",
+        "match": 1,
+        "training": true,
+        "rmse_rpm": 52.07101063468097
+      },
+      {
+        "group": "startup",
+        "match": 2,
+        "training": false,
+        "rmse_rpm": 43.295362445081025
+      },
+      {
+        "group": "startup",
+        "match": 3,
+        "training": true,
+        "rmse_rpm": 53.75221491354023
+      },
+      {
+        "group": "startup",
+        "match": 4,
+        "training": false,
+        "rmse_rpm": 50.81700383832335
+      },
+      {
+        "group": "startup",
+        "match": 5,
+        "training": true,
+        "rmse_rpm": 41.44718504609969
+      },
+      {
+        "group": "startup",
+        "match": 6,
+        "training": false,
+        "rmse_rpm": 50.09008515672031
+      },
+      {
+        "group": "load",
+        "match": 4,
+        "label": "volley7",
+        "training": false,
+        "rmse_rpm": 35.0845499123226
+      },
+      {
+        "group": "load",
+        "match": 4,
+        "label": "volley9",
+        "training": false,
+        "rmse_rpm": 32.902157126427554
+      },
+      {
+        "group": "load",
+        "match": 6,
+        "label": "volley10",
+        "training": false,
+        "rmse_rpm": 66.35182587260651
+      },
+      {
+        "group": "load",
+        "match": 6,
+        "label": "volley11",
+        "training": false,
+        "rmse_rpm": 45.99695103205841
+      }
+    ]
+  },
+  "sources": [
+    {
+      "run": "20261119_171659_262_CloseShootingAlone_4892304d",
+      "sha256": "6fe7bd3a6e1955c95f4086acbc57191f3a923bc1dbcbbc3f9f6a766faa80d902"
+    },
+    {
+      "run": "20261119_171736_694_Pickles2026Teleop_90f06062",
+      "sha256": "c74daee1fab02eb27440be2798ff5704ff180ff26a49a6447378b82c92d00324"
+    },
+    {
+      "run": "20261119_174322_362_CloseShootingAlone_9dadd8c9",
+      "sha256": "4776e6ce183b188b53ce2d915269224847c77dc178e9f42d6b31b429eabcfaaf"
+    },
+    {
+      "run": "20261119_174359_600_Pickles2026Teleop_ffb6a2c8",
+      "sha256": "15c3c54eb7640bfee1528089427ecbeff156e9c136eee54006c394ef640bc516"
+    },
+    {
+      "run": "20261119_181508_509_CloseShootingAlone_ccd9ef11",
+      "sha256": "4244e0aebc778421e5d19a6735ec6d968ff136522abc52d1fca09449e636c8e4"
+    },
+    {
+      "run": "20261119_181546_484_Pickles2026Teleop_2092ccd9",
+      "sha256": "a40081bf116a870505e9c0384046ae691ae298f9fd11038d9c13024008295c63"
+    },
+    {
+      "run": "20261119_183725_413_CloseShootingAlone_bcfb4bd5",
+      "sha256": "b9dc95bbf5b99f4b955bef69715d1b8b957e49b2419224d0e6360ec805bd08e1"
+    },
+    {
+      "run": "20261119_183802_809_Pickles2026Teleop_12a5634c",
+      "sha256": "b603c06cf74bd0468c64241acb9c2da5acdd2c4621bb88adbcee92f8c560450f"
+    },
+    {
+      "run": "20261119_191824_467_CloseShootingAlone_7a9a718f",
+      "sha256": "dfe2e3579a778423bfd13c1e6d8e22588d0a82833b45a3108dd86d84bea78616"
+    },
+    {
+      "run": "20261119_191901_971_Pickles2026Teleop_34fb400a",
+      "sha256": "45e8f3f4dc28d6d7b63addd4bc5cbf64800f7e67198e65e4194129977b182363"
+    },
+    {
+      "run": "20261119_193052_788_CloseShootingAlone_27852270",
+      "sha256": "d81f4428903ba3fa8e9f29fc9a6b4eca03ee72e9f9ac5b44d2df8a7e57dc6185"
+    },
+    {
+      "run": "20261119_193130_819_Pickles2026Teleop_b36d1826",
+      "sha256": "5432fc6b6483acba8461df694de613c68b41cda4dabcc6fee7dd941930cb133c"
+    }
+  ],
+  "assumptions": [
+    "Positive-drive/coast effective motor law; not a transistor-level PWM model.",
+    "Effective inertia and sensor delay are jointly identified, not independent physical measurements.",
+    "Four Gaussian load lobes approximate aggregate loading; their centers are not measured launch events.",
+    "Torque load scales linearly with wheel speed near the calibration range.",
+    "Bus voltage is prescribed; changed controller current does not recalculate battery sag.",
+    "No ball launch velocity, trajectory, or scoring model is calibrated."
+  ]
+}

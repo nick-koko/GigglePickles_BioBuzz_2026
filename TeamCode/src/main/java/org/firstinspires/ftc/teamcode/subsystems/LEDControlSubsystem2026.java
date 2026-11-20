@@ -2,7 +2,6 @@ package org.firstinspires.ftc.teamcode.subsystems;
 
 import com.bylazar.configurables.annotations.Configurable;
 import com.qualcomm.robotcore.hardware.PwmControl;
-import com.qualcomm.robotcore.hardware.Servo;
 import com.qualcomm.robotcore.hardware.ServoImplEx;
 import com.qualcomm.robotcore.util.Range;
 
@@ -15,8 +14,8 @@ import dev.nextftc.ftc.ActiveOpMode;
  * Uses factory PWM presets for reliable ball count display without
  * programming custom Artboards.
  *
- * Range warnings (red/off blink) override the progress bar. Stage pulses also
- * temporarily override it. The live ball count is retained underneath.
+ * Solid red range warnings override synchronized white aim flashes, stage
+ * pulses, and ball count. The live ball count is retained underneath.
  */
 @Configurable
 public class LEDControlSubsystem2026 implements Subsystem {
@@ -40,11 +39,12 @@ public class LEDControlSubsystem2026 implements Subsystem {
     public static double STAGE_PULSE_ON_SECONDS = 0.15;
     public static double STAGE_PULSE_GAP_SECONDS = 0.10;
 
-    // Red/off blink: seconds for each half-cycle.
-    public static double SHOOT_RANGE_WARNING_BLINK_SECONDS = 0.18;
+    // Two complete white/off flashes per second. Captured PWM range is set at Init.
+    public static double SHOOT_ALIGNED_BLINK_SECONDS = 0.25;
 
-    private Servo led1;
-    private Servo led2;
+    private ServoImplEx led1;
+    private ServoImplEx led2;
+    private double pwmMinimumUs, pwmMaximumUs;
     private LedPreset activePreset = LedPreset.RED;
     private LedPreset requestedPreset = LedPreset.RED;
     private boolean stagePulseActive;
@@ -53,7 +53,8 @@ public class LEDControlSubsystem2026 implements Subsystem {
     private double activeStagePulseGapSeconds;
     private LedPreset activeStagePulsePreset;
     private boolean shootRangeWarningActive;
-    private long shootRangeWarningStartNanos;
+    private boolean shootAlignedActive;
+    private long shootAlignedStartNanos;
     private int displayedBallCount;
     private double targetPulseUs;
     private double targetServoPosition;
@@ -63,10 +64,20 @@ public class LEDControlSubsystem2026 implements Subsystem {
 
     @Override
     public void initialize() {
+        if (!Double.isFinite(PWM_MIN_US) || !Double.isFinite(PWM_MAX_US)
+                || PWM_MIN_US <= 0 || PWM_MAX_US <= PWM_MIN_US
+                || !Double.isFinite(GLOBAL_PULSE_TRIM_US)
+                || !Double.isFinite(SHOOT_ALIGNED_BLINK_SECONDS)
+                || SHOOT_ALIGNED_BLINK_SECONDS <= 0) {
+            throw new IllegalArgumentException("LED PWM range, trim, or flash timing is invalid");
+        }
+        pwmMinimumUs = PWM_MIN_US;
+        pwmMaximumUs = PWM_MAX_US;
         stagePulseActive = false;
         shootRangeWarningActive = false;
-        led1 = ActiveOpMode.hardwareMap().get(Servo.class, "rgb_color_PWM1");
-        led2 = ActiveOpMode.hardwareMap().get(Servo.class, "rgb_color_PWM2");
+        shootAlignedActive = false;
+        led1 = ActiveOpMode.hardwareMap().get(ServoImplEx.class, "rgb_color_PWM1");
+        led2 = ActiveOpMode.hardwareMap().get(ServoImplEx.class, "rgb_color_PWM2");
         configurePwmRange(led1);
         configurePwmRange(led2);
         displayBallCount(IntakeWithSensorsSubsystem2026.INSTANCE.getBallCount());
@@ -76,7 +87,7 @@ public class LEDControlSubsystem2026 implements Subsystem {
     public void periodic() {
         if (AUTOMATIC_BALL_COUNT_DISPLAY) {
             displayBallCount(IntakeWithSensorsSubsystem2026.INSTANCE.getBallCount());
-        } else if (stagePulseActive || shootRangeWarningActive) {
+        } else if (stagePulseActive || shootRangeWarningActive || shootAlignedActive) {
             updateDisplay();
         }
     }
@@ -125,12 +136,19 @@ public class LEDControlSubsystem2026 implements Subsystem {
 
     /** Range warnings override pulses and ball count; underlying count still updates. */
     public void setShootRangeWarning(boolean active) {
-        if (active && !shootRangeWarningActive) {
-            shootRangeWarningStartNanos = System.nanoTime();
-        }
         shootRangeWarningActive = active;
         updateDisplay();
     }
+
+    /** Atomically update feedback so a range warning always wins over alignment. */
+    public void setShootingFeedback(boolean rangeWarning, boolean aligned) {
+        if (aligned && !shootAlignedActive) shootAlignedStartNanos = System.nanoTime();
+        shootRangeWarningActive = rangeWarning;
+        shootAlignedActive = aligned;
+        updateDisplay();
+    }
+
+    public boolean isShootAlignedActive() { return shootAlignedActive; }
 
     public boolean isShootRangeWarningActive() {
         return shootRangeWarningActive;
@@ -149,32 +167,27 @@ public class LEDControlSubsystem2026 implements Subsystem {
                 preset = activeStagePulsePreset;
             }
         }
-        if (shootRangeWarningActive) {
-            double interval = Double.isFinite(SHOOT_RANGE_WARNING_BLINK_SECONDS)
-                    ? Math.max(0.02, SHOOT_RANGE_WARNING_BLINK_SECONDS) : 0.18;
-            double elapsed = (System.nanoTime() - shootRangeWarningStartNanos) / 1e9;
-            boolean redPhase = ((long) (elapsed / interval) % 2) == 0;
-            preset = redPhase ? LedPreset.RED : LedPreset.OFF;
+        if (shootAlignedActive) {
+            if (!Double.isFinite(SHOOT_ALIGNED_BLINK_SECONDS)
+                    || SHOOT_ALIGNED_BLINK_SECONDS <= 0) {
+                throw new IllegalArgumentException("LED aligned flash half-cycle must be positive and finite");
+            }
+            double elapsed = (System.nanoTime() - shootAlignedStartNanos) / 1e9;
+            boolean whitePhase = ((long) (elapsed / SHOOT_ALIGNED_BLINK_SECONDS) % 2) == 0;
+            preset = whitePhase ? LedPreset.WHITE : LedPreset.OFF;
         }
+        if (shootRangeWarningActive) preset = LedPreset.RED;
         activePreset = preset;
         setPulseWidthMicroseconds(activePreset.centerPulseUs() + GLOBAL_PULSE_TRIM_US);
     }
 
     public void setPulseWidthMicroseconds(double pulseUs) {
-        double minimum = Math.min(PWM_MIN_US, PWM_MAX_US);
-        double maximum = Math.max(PWM_MIN_US, PWM_MAX_US);
-        if (maximum <= minimum) {
-            return;
-        }
-        targetPulseUs = Range.clip(pulseUs, minimum, maximum);
+        if (!Double.isFinite(pulseUs)) throw new IllegalArgumentException("LED pulse must be finite");
+        targetPulseUs = Range.clip(pulseUs, pwmMinimumUs, pwmMaximumUs);
         targetServoPosition = Range.clip(
-                (targetPulseUs - minimum) / (maximum - minimum), 0.0, 1.0);
-        if (led1 != null) {
-            led1.setPosition(targetServoPosition);
-        }
-        if (led2 != null) {
-            led2.setPosition(targetServoPosition);
-        }
+                (targetPulseUs - pwmMinimumUs) / (pwmMaximumUs - pwmMinimumUs), 0.0, 1.0);
+        led1.setPosition(targetServoPosition);
+        led2.setPosition(targetServoPosition);
     }
 
     public LedPreset getActivePreset() {
@@ -209,11 +222,8 @@ public class LEDControlSubsystem2026 implements Subsystem {
         }
     }
 
-    private static void configurePwmRange(Servo servo) {
-        if (servo instanceof ServoImplEx) {
-            ((ServoImplEx) servo).setPwmRange(
-                    new PwmControl.PwmRange(PWM_MIN_US, PWM_MAX_US));
-        }
+    private void configurePwmRange(ServoImplEx servo) {
+        servo.setPwmRange(new PwmControl.PwmRange(pwmMinimumUs, pwmMaximumUs));
     }
 
     /** Pulse centers in microseconds, goBILDA Prism PWM control table. */
@@ -232,6 +242,8 @@ public class LEDControlSubsystem2026 implements Subsystem {
         YELLOW(1300.0),
         LIGHT_BLUE(1600.0),
         SOLID_GREEN(1500.0),
+        // Prism solid-color range ends at 1949 us; above 1900 us selects white.
+        WHITE(1925.0),
         SNAKE_1(2205.0),
         SNAKE_2(2215.0),
         SNAKE_3(2225.0),
