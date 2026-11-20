@@ -97,6 +97,21 @@ class ConvertTest(unittest.TestCase):
         self.assertTrue(any(r[0]=="/ShotDetail/controller_power_before_boost" for r in records))
         self.assertEqual(len([r for r in records if r[0]=="/Replay/CommandedVolleyLocations"]),1)
 
+    def test_extended_shooter_profile_columns_remain_schema_one_compatible(self):
+        path=self.csv()
+        with path.open(newline="",encoding="utf-8") as stream:
+            reader=csv.DictReader(stream)
+            fields=reader.fieldnames+["shooter_power_profile","shooter_startup_exit_reason"]
+            rows=list(reader)
+        for row in rows:
+            row.update(shooter_power_profile="RUNNING",shooter_startup_exit_reason="PROFILE_DISABLED")
+        with path.open("w",newline="",encoding="utf-8") as stream:
+            writer=csv.DictWriter(stream,fields);writer.writeheader();writer.writerows(rows)
+        converter.convert([path],self.output)
+        records=read_records(self.output)
+        self.assertTrue(any(r[0]=="/Match/shooter_power_profile" and r[1]=="string" and r[3]==b"RUNNING" for r in records))
+        self.assertTrue(any(r[0]=="/Match/shooter_startup_exit_reason" and r[3]==b"PROFILE_DISABLED" for r in records))
+
     def test_cross_run_requires_wall_timeline(self):
         a,b=self.csv(),self.csv("teleop.csv",session="two",epoch=110000)
         with self.assertRaises(ValueError): converter.convert([a,b],self.output)

@@ -14,7 +14,8 @@ public final class RobotLogFrame2026 {
             + "intake_mode,jam_reverse,flower_position,turret_mode,turret_state,"
             + "turret_measured_deg,turret_target_deg,turret_robot_relative_deg,"
             + "turret_velocity_deg_s,turret_aim_ready,turret_reachable,"
-            + "dropped_match_rows,dropped_detail_rows,writer_queue_rows").split(",");
+            + "dropped_match_rows,dropped_detail_rows,writer_queue_rows,"
+            + "shooter_power_profile,shooter_startup_elapsed_s,shooter_startup_exit_reason").split(",");
 
     public String session = "", opmode = "", phase = "", profile = "", stage = "", plan = "";
     public double timeMs, periodMs, previousCaptureMs;
@@ -39,6 +40,8 @@ public final class RobotLogFrame2026 {
     public boolean turretReady, turretReachable;
     public long droppedMatch, droppedDetail;
     public int queueRows;
+    public String shooterPowerProfile = "OFF", shooterStartupExitReason = "";
+    public double shooterStartupElapsed;
 
     public Object[] values(String event, String note) {
         return new Object[]{1, session, opmode, phase, profile, timeMs, epochMs, loop, periodMs,
@@ -50,6 +53,7 @@ public final class RobotLogFrame2026 {
                 rawV, filteredV, boostRequested, boostApplied, appliedPower, intakeMode,
                 jamReverse, flower, turretMode, turretState, turretMeasured, turretTarget,
                 turretRelative, turretVelocity, turretReady, turretReachable,
-                droppedMatch, droppedDetail, queueRows};
+                droppedMatch, droppedDetail, queueRows, shooterPowerProfile,
+                shooterStartupElapsed, shooterStartupExitReason};
     }
 }

@@ -8,6 +8,7 @@ import com.qualcomm.robotcore.hardware.VoltageSensor;
 import com.qualcomm.robotcore.util.Range;
 
 import org.firstinspires.ftc.robotcore.external.navigation.CurrentUnit;
+import org.firstinspires.ftc.teamcode.util.ShooterPowerProfile2026;
 
 import dev.nextftc.core.subsystems.Subsystem;
 import dev.nextftc.ftc.ActiveOpMode;
@@ -35,6 +36,18 @@ public class ShooterSubsystem2026 implements Subsystem {
     public static double kA = 0.0;
 
     public static double SLEW_PER_SECOND = 1.5;
+    // Both switches default off: SLEW_PER_SECOND retains the meet behavior.
+    public static boolean ENABLE_ASYMMETRIC_SLEW = false;
+    public static double RUNNING_SLEW_UP_PER_SECOND = 1.5;
+    public static double RUNNING_SLEW_DOWN_PER_SECOND = 1.5;
+    public static boolean ENABLE_STARTUP_PROFILE = false;
+    public static double STARTUP_SLEW_UP_PER_SECOND = 1.5;
+    public static double STARTUP_SLEW_DOWN_PER_SECOND = 1.5;
+    public static double STARTUP_ENTRY_MAX_RPM = 200.0;
+    public static double STARTUP_EXIT_TOLERANCE_RPM = 50.0;
+    public static double STARTUP_EXIT_MAX_SLOPE_RPM_PER_SECOND = 200.0;
+    public static double STARTUP_EXIT_STABLE_SECONDS = 0.15;
+    public static double STARTUP_MAX_SECONDS = 2.0;
     public static double I_ZONE_RPM = 500.0;
     public static double INTEGRAL_MIN = -1.0;
     public static double INTEGRAL_MAX = 1.0;
@@ -62,6 +75,13 @@ public class ShooterSubsystem2026 implements Subsystem {
     private boolean controllerJustEnabled;
     private double minimumPowerOverride = Double.NaN;
     private boolean powerOverrideBypassesSlew;
+    private boolean boostVoltageScaling, shotFeeding;
+    private double boostNominalVoltage = 12.5, boostOverspeedTaperRpm;
+    private final ShooterPowerProfile2026 powerProfile = new ShooterPowerProfile2026();
+    private double lastSlewUp, lastSlewDown, lastOverrideFloor;
+    private double lastBoostVoltageGain = 1.0, lastBoostScaledFloor;
+    private double lastBoostOverspeedMultiplier = 1.0, lastBoostEffectiveFloor;
+    private boolean lastBoostBypassedSlew;
 
     // Controller state and cached diagnostic/logging values.
     private long lastTimestampNanos;
@@ -102,6 +122,7 @@ public class ShooterSubsystem2026 implements Subsystem {
 
     @Override
     public void initialize() {
+        validateConfiguration();
         resetRuntimeState();
 
         shooterMotor = ActiveOpMode.hardwareMap().get(DcMotorEx.class, "shooter_motor1");
@@ -161,6 +182,7 @@ public class ShooterSubsystem2026 implements Subsystem {
         updateBatteryVoltageEstimate(dt);
 
         if (!enabled || targetFlywheelRpm <= 0.0) {
+            powerProfile.reset();
             applyPower(0.0);
             clearControllerTerms();
             lastTimestampNanos = nowNanos;
@@ -168,13 +190,29 @@ public class ShooterSubsystem2026 implements Subsystem {
             return;
         }
 
+        updateController(nowNanos, measuredFlywheelRpm, dt);
+    }
+
+    /** Uses this loop's cached samples only; separated for deterministic desktop checks. */
+    private void updateController(long nowNanos, double measuredFlywheelRpm, double dt) {
         double error = targetFlywheelRpm - measuredFlywheelRpm;
 
         if (controllerJustEnabled) {
+            powerProfile.begin(nowNanos, measuredFlywheelRpm, ENABLE_STARTUP_PROFILE,
+                    STARTUP_ENTRY_MAX_RPM, shotFeeding);
             lastErrorRpm = error;
             lastTargetFlywheelRpm = targetFlywheelRpm;
             controllerJustEnabled = false;
         }
+        powerProfile.update(nowNanos, measuredFlywheelRpm, targetFlywheelRpm, dt,
+                ENABLE_STARTUP_PROFILE, shotFeeding, STARTUP_MAX_SECONDS,
+                STARTUP_EXIT_TOLERANCE_RPM, STARTUP_EXIT_MAX_SLOPE_RPM_PER_SECOND,
+                STARTUP_EXIT_STABLE_SECONDS);
+        boolean startup = powerProfile.getState() == ShooterPowerProfile2026.State.STARTUP;
+        lastSlewUp = startup ? STARTUP_SLEW_UP_PER_SECOND
+                : ENABLE_ASYMMETRIC_SLEW ? RUNNING_SLEW_UP_PER_SECOND : SLEW_PER_SECOND;
+        lastSlewDown = startup ? STARTUP_SLEW_DOWN_PER_SECOND
+                : ENABLE_ASYMMETRIC_SLEW ? RUNNING_SLEW_DOWN_PER_SECOND : SLEW_PER_SECOND;
 
         if (Math.abs(error) <= Math.max(0.0, I_ZONE_RPM)) {
             integral += error * dt;
@@ -221,28 +259,39 @@ public class ShooterSubsystem2026 implements Subsystem {
         lastControllerOutputBeforeBoost = requestedOutput;
         // A same-loop comparison from the same previous actual output, not an
         // independent simulation of how RPM would have evolved without boost.
-        double diagnosticMaxStep = Math.max(0.0, SLEW_PER_SECOND) * dt;
+        double upStep = Math.max(0.0, lastSlewUp) * dt;
+        double downStep = Math.max(0.0, lastSlewDown) * dt;
         lastOutputWithoutBoostThisLoop = Range.clip(requestedOutput,
-                lastAppliedPower - diagnosticMaxStep, lastAppliedPower + diagnosticMaxStep);
+                lastAppliedPower - downStep, lastAppliedPower + upStep);
         lastPowerOverrideActive = Double.isFinite(minimumPowerOverride);
+        lastOverrideFloor = lastBoostScaledFloor = lastBoostEffectiveFloor = 0.0;
+        lastBoostVoltageGain = lastBoostOverspeedMultiplier = 1.0;
         if (lastPowerOverrideActive) {
-            requestedOutput = Math.max(
-                    requestedOutput,
-                    Range.clip(minimumPowerOverride, 0.0, 1.0)
-            );
+            lastOverrideFloor = Range.clip(minimumPowerOverride, 0.0, 1.0);
+            lastBoostVoltageGain = ShooterPowerProfile2026.boostVoltageGain(boostVoltageScaling,
+                    lastBatteryVoltageFiltered, VOLTAGE_COMP_MIN_VALID_V, boostNominalVoltage);
+            lastBoostScaledFloor = Range.clip(lastOverrideFloor * lastBoostVoltageGain, 0.0, 1.0);
+            lastBoostOverspeedMultiplier = ShooterPowerProfile2026.overspeedMultiplier(
+                    measuredFlywheelRpm, targetFlywheelRpm, boostOverspeedTaperRpm);
+            // Taper only the extra floor above feedback. With taper disabled, keep
+            // the original max(requested, floor) arithmetic exactly.
+            lastBoostEffectiveFloor = boostOverspeedTaperRpm > 0
+                    ? requestedOutput + Math.max(0, lastBoostScaledFloor-requestedOutput)
+                        * lastBoostOverspeedMultiplier : lastBoostScaledFloor;
+            requestedOutput = Math.max(requestedOutput, lastBoostEffectiveFloor);
         }
         lastOutputBeforeSlew = requestedOutput;
 
         // Limit the ACTUAL commanded motor power, after voltage compensation.
-        double maxStep = Math.max(0.0, SLEW_PER_SECOND) * dt;
         double finalOutput;
+        lastBoostBypassedSlew = lastPowerOverrideActive && powerOverrideBypassesSlew;
         if (lastPowerOverrideActive && powerOverrideBypassesSlew) {
             finalOutput = requestedOutput;
         } else {
             finalOutput = Range.clip(
                     requestedOutput,
-                    lastAppliedPower - maxStep,
-                    lastAppliedPower + maxStep
+                    lastAppliedPower - downStep,
+                    lastAppliedPower + upStep
             );
         }
         finalOutput = Range.clip(finalOutput, 0.0, 1.0);
@@ -266,6 +315,7 @@ public class ShooterSubsystem2026 implements Subsystem {
         targetFlywheelRpm = Math.max(0.0, flywheelRpm);
         enabled = targetFlywheelRpm > 0.0;
         if (enabled && !wasEnabled) {
+            validateConfiguration();
             controllerJustEnabled = true;
             integral = 0.0;
         }
@@ -284,13 +334,27 @@ public class ShooterSubsystem2026 implements Subsystem {
      * power. Intended for timed shot-recovery experiments.
      */
     public void setMinimumPowerOverride(double minimumPower, boolean bypassSlew) {
+        setMinimumPowerOverride(minimumPower, bypassSlew, false, 12.5, 0.0);
+    }
+
+    /** Shot profile supplied by the sequence; voltage/RPM shaping uses controller-loop samples. */
+    public void setMinimumPowerOverride(double minimumPower, boolean bypassSlew,
+            boolean voltageScaling, double nominalVoltage, double taperRpm) {
         minimumPowerOverride = Range.clip(minimumPower, 0.0, 1.0);
         powerOverrideBypassesSlew = bypassSlew;
+        boostVoltageScaling = voltageScaling;
+        boostNominalVoltage = nominalVoltage;
+        boostOverspeedTaperRpm = taperRpm;
     }
+
+    /** Notification only: does not command a gate, motor, or permission to shoot. */
+    public void setShotFeeding(boolean feeding) { shotFeeding = feeding; }
 
     public void clearMinimumPowerOverride() {
         minimumPowerOverride = Double.NaN;
         powerOverrideBypassesSlew = false;
+        boostVoltageScaling = false;
+        boostOverspeedTaperRpm = 0.0;
     }
 
     public void stop() {
@@ -301,6 +365,11 @@ public class ShooterSubsystem2026 implements Subsystem {
     }
 
     private void resetRuntimeState() {
+        powerProfile.reset();
+        shotFeeding = false;
+        boostVoltageScaling = false;
+        boostNominalVoltage = 12.5;
+        boostOverspeedTaperRpm = 0.0;
         targetFlywheelRpm = 0.0;
         enabled = false;
         controllerJustEnabled = false;
@@ -342,6 +411,27 @@ public class ShooterSubsystem2026 implements Subsystem {
         lastSlewLimited = false;
         lastCommandSaturated = false;
         lastPowerOverrideActive = false;
+        lastSlewUp = lastSlewDown = lastOverrideFloor = lastBoostScaledFloor = lastBoostEffectiveFloor = 0.0;
+        lastBoostVoltageGain = lastBoostOverspeedMultiplier = 1.0;
+        lastBoostBypassedSlew = false;
+    }
+
+    public static void validateConfiguration() {
+        double[] nonnegative = {SLEW_PER_SECOND, RUNNING_SLEW_UP_PER_SECOND, RUNNING_SLEW_DOWN_PER_SECOND,
+                STARTUP_SLEW_UP_PER_SECOND, STARTUP_SLEW_DOWN_PER_SECOND, STARTUP_ENTRY_MAX_RPM,
+                STARTUP_EXIT_TOLERANCE_RPM, STARTUP_EXIT_MAX_SLOPE_RPM_PER_SECOND,
+                STARTUP_EXIT_STABLE_SECONDS, STARTUP_MAX_SECONDS};
+        for (double value : nonnegative) if (!Double.isFinite(value) || value < 0)
+            throw new IllegalArgumentException("Shooter slew/startup settings must be finite and nonnegative");
+        if (!Double.isFinite(ENCODER_TICKS_PER_MOTOR_REV) || ENCODER_TICKS_PER_MOTOR_REV <= 0
+                || !Double.isFinite(MOTOR_RPM_PER_FLYWHEEL_RPM) || MOTOR_RPM_PER_FLYWHEEL_RPM <= 0)
+            throw new IllegalArgumentException("Shooter encoder resolution and motor ratio must be positive");
+        if (!Double.isFinite(VOLTAGE_COMP_MIN_GAIN) || !Double.isFinite(VOLTAGE_COMP_MAX_GAIN)
+                || VOLTAGE_COMP_MIN_GAIN < 0 || VOLTAGE_COMP_MAX_GAIN < VOLTAGE_COMP_MIN_GAIN
+                || !Double.isFinite(VOLTAGE_COMP_NOMINAL_V) || VOLTAGE_COMP_NOMINAL_V <= 0
+                || !Double.isFinite(VOLTAGE_COMP_FILTER_TAU_SEC) || VOLTAGE_COMP_FILTER_TAU_SEC < 0
+                || !Double.isFinite(VOLTAGE_COMP_MIN_VALID_V) || VOLTAGE_COMP_MIN_VALID_V <= 0)
+            throw new IllegalArgumentException("Invalid shooter voltage compensation settings");
     }
 
     private void applyPower(double power) {
@@ -571,4 +661,17 @@ public class ShooterSubsystem2026 implements Subsystem {
     public double getVoltageCompGain() {
         return lastVoltageCompGain;
     }
+
+    public String getPowerProfileState() { return powerProfile.getState().name(); }
+    public String getStartupExitReason() { return powerProfile.getExitReason(); }
+    public double getStartupElapsedSeconds() { return powerProfile.getElapsedSeconds(); }
+    public double getMeasuredAccelerationRpmPerSecond() { return powerProfile.getMeasuredSlope(); }
+    public double getActiveSlewUpPerSecond() { return lastSlewUp; }
+    public double getActiveSlewDownPerSecond() { return lastSlewDown; }
+    public double getSampleOverrideFloor() { return lastOverrideFloor; }
+    public double getBoostVoltageGain() { return lastBoostVoltageGain; }
+    public double getBoostScaledFloor() { return lastBoostScaledFloor; }
+    public double getBoostOverspeedMultiplier() { return lastBoostOverspeedMultiplier; }
+    public double getBoostEffectiveFloor() { return lastBoostEffectiveFloor; }
+    public boolean didBoostBypassSlew() { return lastBoostBypassedSlew; }
 }

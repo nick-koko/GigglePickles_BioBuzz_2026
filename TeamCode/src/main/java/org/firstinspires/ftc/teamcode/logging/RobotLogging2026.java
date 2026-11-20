@@ -68,7 +68,15 @@ public final class RobotLogging2026 {
             + "turret_servo_right,turret_servo_zero_offset_deg,turret_absolute_raw_deg,"
             + "turret_cached_quad_ticks,turret_calibrated,turret_status,flower_servo_command,"
             + "regression_rpm_per_in,regression_intercept,operator_rpm_trim,shot_table_enabled,"
-            + "controller_target_rpm").split(",");
+            + "controller_target_rpm,startup_profile_enabled,asymmetric_slew_enabled,"
+            + "startup_slew_up_per_s,startup_slew_down_per_s,running_slew_up_per_s,running_slew_down_per_s,"
+            + "startup_entry_max_rpm,startup_exit_tolerance_rpm,startup_exit_max_slope_rpm_s,"
+            + "startup_exit_stable_s,startup_timeout_s,active_slew_up_per_s,active_slew_down_per_s,"
+            + "measured_acceleration_rpm_s,boost_profile_ramped_for_sequence,boost_start_power_for_sequence,"
+            + "boost_end_power_for_sequence,boost_voltage_scaled_for_sequence,boost_nominal_v_for_sequence,"
+            + "boost_taper_rpm_for_sequence,boost_floor_requested,controller_sample_override_floor,"
+            + "boost_voltage_gain,boost_floor_voltage_scaled,boost_overspeed_multiplier,"
+            + "boost_floor_effective,controller_sample_boost_bypass").split(",");
     public static final String[] DETAIL_HEADER = concatenate(RobotLogFrame2026.HEADER, DETAIL_EXTRA_HEADER);
 
     private AsyncCsvWriter2026 writer;
@@ -239,6 +247,9 @@ public final class RobotLogging2026 {
         f.endReason = sequence.getEndReason();
         if (!contextSet) f.fireRequested = f.sequenceActive;
         f.shooterEnabled = s.isEnabled(); f.targetRpm = s.getTargetFlywheelRpm();
+        f.shooterPowerProfile = s.getPowerProfileState();
+        f.shooterStartupElapsed = s.getStartupElapsedSeconds();
+        f.shooterStartupExitReason = s.getStartupExitReason();
         f.measuredRpm = s.getMeasuredFlywheelRpm(); f.rawV = s.getBatteryVoltageRaw();
         f.filteredV = s.getBatteryVoltageFiltered(); f.boostRequested = sequence.isBoostActive();
         f.boostApplied = s.isMinimumPowerOverrideActive(); f.appliedPower = s.getAppliedPower();
@@ -321,10 +332,28 @@ public final class RobotLogging2026 {
                 robotAvailable ? FlowerIntakeSubsystem2026.INSTANCE.getServoPosition() : Double.NaN,
                 Pickles2026Teleop.REGRESSION_RPM_PER_INCH, Pickles2026Teleop.REGRESSION_RPM_INTERCEPT,
                 Pickles2026Teleop.SHOOTER_RPM_TRIM, Pickles2026Teleop.USE_SHOT_TABLE,
-                s.getControllerTargetFlywheelRpm()};
+                s.getControllerTargetFlywheelRpm(), ShooterSubsystem2026.ENABLE_STARTUP_PROFILE,
+                ShooterSubsystem2026.ENABLE_ASYMMETRIC_SLEW,
+                ShooterSubsystem2026.STARTUP_SLEW_UP_PER_SECOND, ShooterSubsystem2026.STARTUP_SLEW_DOWN_PER_SECOND,
+                ShooterSubsystem2026.RUNNING_SLEW_UP_PER_SECOND, ShooterSubsystem2026.RUNNING_SLEW_DOWN_PER_SECOND,
+                ShooterSubsystem2026.STARTUP_ENTRY_MAX_RPM, ShooterSubsystem2026.STARTUP_EXIT_TOLERANCE_RPM,
+                ShooterSubsystem2026.STARTUP_EXIT_MAX_SLOPE_RPM_PER_SECOND,
+                ShooterSubsystem2026.STARTUP_EXIT_STABLE_SECONDS, ShooterSubsystem2026.STARTUP_MAX_SECONDS,
+                s.getActiveSlewUpPerSecond(), s.getActiveSlewDownPerSecond(), s.getMeasuredAccelerationRpmPerSecond(),
+                sequence.isActiveRampedBoost(), sequence.getActiveBoostStartPower(), sequence.getActiveBoostEndPower(),
+                sequence.isActiveBoostVoltageScaling(), sequence.getActiveBoostNominalV(), sequence.getActiveBoostTaperRpm(),
+                sequence.getRequestedBoostFloor(), s.getSampleOverrideFloor(), s.getBoostVoltageGain(),
+                s.getBoostScaledFloor(), s.getBoostOverspeedMultiplier(), s.getBoostEffectiveFloor(), s.didBoostBypassSlew()};
     }
 
     public void addTelemetry(Telemetry telemetry) {
+        ShooterSubsystem2026 shooter = ShooterSubsystem2026.INSTANCE;
+        telemetry.addData("Shooter profile / up / down", "%s / %.2f / %.2f power/s",
+                shooter.getPowerProfileState(), shooter.getActiveSlewUpPerSecond(), shooter.getActiveSlewDownPerSecond());
+        telemetry.addData("Shooter startup elapsed / exit", "%.2f s / %s",
+                shooter.getStartupElapsedSeconds(), shooter.getStartupExitReason());
+        telemetry.addData("Boost floor unscaled / scaled / effective", "%.3f / %.3f / %.3f",
+                shooter.getSampleOverrideFloor(), shooter.getBoostScaledFloor(), shooter.getBoostEffectiveFloor());
         String error = !captureError.isEmpty() ? captureError : writer == null ? "" : writer.getError();
         telemetry.addData("Logging", !error.isEmpty() ? "ERROR: " + error
                 : "match=" + ENABLE_MATCH_LOG + " detail=" + ENABLE_SHOT_DETAIL_LOG);

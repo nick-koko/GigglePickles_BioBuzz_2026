@@ -16,6 +16,7 @@ public final class Logging2026Test {
         schemaAndDetail();
         sequenceStartOccupancy();
         eventsAndPause();
+        shooterProfileEvents();
         detailSwitchAvoidsMotorReads();
         configurationIncludesCalibration();
         deferredWrites();
@@ -44,6 +45,14 @@ public final class Logging2026Test {
         check("boost config aligned", row.get("boost_enabled_for_sequence").equals(false));
         check("cached controller target aligned", row.get("controller_target_rpm")
                 .equals(ShooterSubsystem2026.INSTANCE.getControllerTargetFlywheelRpm()));
+        check("startup flag aligned", row.get("startup_profile_enabled").equals(false));
+        check("asymmetric flag aligned", row.get("asymmetric_slew_enabled").equals(false));
+        check("active up limit aligned", row.get("active_slew_up_per_s").equals(ShooterSubsystem2026.INSTANCE.getActiveSlewUpPerSecond()));
+        check("active down limit aligned", row.get("active_slew_down_per_s").equals(ShooterSubsystem2026.INSTANCE.getActiveSlewDownPerSecond()));
+        check("controller-sample override aligned", row.get("controller_sample_override_floor").equals(ShooterSubsystem2026.INSTANCE.getSampleOverrideFloor()));
+        check("boost voltage gain aligned", row.get("boost_voltage_gain").equals(1.0));
+        check("boost taper multiplier aligned", row.get("boost_overspeed_multiplier").equals(1.0));
+        check("boost effective floor aligned", row.get("boost_floor_effective").equals(0.0));
         check("no uninitialized turret angle invented", Double.isNaN((Double)row.get("turret_commanded_deg")));
         check("no nonexistent hood columns", Arrays.stream(RobotLogging2026.DETAIL_HEADER).noneMatch(s -> s.contains("hood")));
         logging.stop();
@@ -101,6 +110,22 @@ public final class Logging2026Test {
     private static long count(List<Object[]> rows, String event) {
         int index = Arrays.asList(RobotLogFrame2026.HEADER).indexOf("event");
         return rows.stream().filter(r->event.equals(r[index])).count();
+    }
+
+    private static void shooterProfileEvents() {
+        List<Object[]> rows=new ArrayList<>();
+        MatchLogRecorder2026 recorder=new MatchLogRecorder2026((d,v)->{rows.add(v);return true;});
+        RobotLogFrame2026 first=frame(0,0,false,0);
+        recorder.update(first,true,1000);
+        RobotLogFrame2026 startup=frame(1,0,false,0); startup.shooterPowerProfile="STARTUP";
+        recorder.update(startup,true,1000);
+        RobotLogFrame2026 handoff=frame(2,0,false,0); handoff.shooterPowerProfile="RUNNING";
+        handoff.shooterStartupExitReason="SETTLED"; handoff.shooterStartupElapsed=.8;
+        recorder.update(handoff,true,1000);
+        check("startup and handoff events between samples",count(rows,"SHOOTER_PROFILE")==2);
+        Object[] last=rows.get(rows.size()-1);
+        check("profile state stored in basic rows",last[Arrays.asList(RobotLogFrame2026.HEADER).indexOf("shooter_power_profile")].equals("RUNNING"));
+        check("profile reason stored in basic rows",last[Arrays.asList(RobotLogFrame2026.HEADER).indexOf("shooter_startup_exit_reason")].equals("SETTLED"));
     }
 
     private static void detailSwitchAvoidsMotorReads() throws Exception {
@@ -175,6 +200,8 @@ public final class Logging2026Test {
             check("table interpolation settings retained",text.contains("ShotCalibrationTable2026.NEAREST_SAMPLE_COUNT="));
             check("table sample values retained",text.contains("SAMPLES[0]=10.0,20.0,3100.0,1.0,-2.0"));
             check("null table samples tolerated",text.contains("SAMPLES[1]=null"));
+            check("new startup defaults in config snapshot",text.contains("ShooterSubsystem2026.ENABLE_STARTUP_PROFILE=false"));
+            check("new boost defaults in config snapshot",text.contains("ShotSequenceController2026.ENABLE_RAMPED_BOOST=false"));
             logging.stop();
         } finally { ShotCalibrationTable2026.SAMPLES=original; }
     }

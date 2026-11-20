@@ -5,6 +5,16 @@ Logging is integrated into `Pickles2026Teleop`, `CloseShootingAlone`, `CloseWith
 Implementation lives in `teamcode/logging`, with small lifecycle calls in each OpMode.
 There is no hood data and no dependency on the 2025 controllers or WPILib on the robot.
 
+Shooter power/startup/boost configuration is documented in
+[Shooter_Power_2026_Setup.md](Shooter_Power_2026_Setup.md). Its new behavior defaults
+off; existing slew, voltage compensation, boost floor and timing are preserved.
+Basic CSVs now append shooter profile state, elapsed startup time and handoff reason,
+with `SHOOTER_PROFILE` events. Detailed CSVs append active/configured slew limits,
+RPM slope, snapshotted boost profile parameters, and unscaled/scaled/tapered floors.
+Pending shot requests and cached controller-sample floors are separate fields.
+Existing column names and schema version 1 are retained; the converter reads both
+old and extended logs. These additions reuse cached samples without new hardware reads.
+
 ## Controls in Panels
 
 Open **RobotLogging2026**. Settings are shared by these OpModes.

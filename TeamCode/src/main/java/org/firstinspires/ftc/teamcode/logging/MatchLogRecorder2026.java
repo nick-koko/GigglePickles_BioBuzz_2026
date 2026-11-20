@@ -31,6 +31,9 @@ public final class MatchLogRecorder2026 {
                 event(frame, "FIRE_REQUEST", "Request/interlock state; not a verified launch");
             if (!frame.turretState.equals(previous.turretState))
                 event(frame, "TURRET_STATE", frame.turretState);
+            if (!frame.shooterPowerProfile.equals(previous.shooterPowerProfile)
+                    || !frame.shooterStartupExitReason.equals(previous.shooterStartupExitReason))
+                event(frame, "SHOOTER_PROFILE", frame.shooterStartupExitReason);
             if (frame.feeding != previous.feeding || frame.boostRequested != previous.boostRequested
                     || frame.shooterEnabled != previous.shooterEnabled
                     || !frame.intakeMode.equals(previous.intakeMode) || frame.jamReverse != previous.jamReverse
