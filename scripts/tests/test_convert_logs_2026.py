@@ -120,6 +120,25 @@ class ConvertTest(unittest.TestCase):
         self.assertEqual(len([r for r in records if r[0]=="/Replay/CommandedVolleyLocations"]),2)
         self.assertTrue(any(r[2]==10000000 for r in records))
 
+    def test_experiment_metadata_and_feed_power_roundtrip(self):
+        path=self.csv("shot_detail.csv",detail=True)
+        with path.open(newline="",encoding="utf-8") as stream:
+            reader=csv.DictReader(stream);fields=reader.fieldnames;rows=list(reader)
+        extras={"test_suite":"COMPARE_FEED_POWER","test_run_label":"four weights, camera A",
+                "test_battery_condition":"LOW","test_trial_id":2,"test_attempt_id":3,
+                "test_profile":"TRANSFER_MILD","test_condition":"STEP_DOWN","test_phase":"FEEDING",
+                "test_abort_reason":"","test_final_target_rpm":3196,"test_initial_target_rpm":3396,
+                "test_confirmed_load":4,"test_feed_enabled":"false","shoot_intake_setting_power":.5,"shoot_transfer_setting_power":.425}
+        fields+=list(extras)
+        for row in rows:row.update(extras)
+        with path.open("w",newline="",encoding="utf-8") as stream:
+            writer=csv.DictWriter(stream,fields);writer.writeheader();writer.writerows(rows)
+        converter.convert([path],self.output);records=read_records(self.output)
+        self.assertTrue(any(r[0]=="/ShotDetail/test_profile" and r[1]=="string" and r[3]==b"TRANSFER_MILD" for r in records))
+        self.assertTrue(any(r[0]=="/ShotDetail/test_condition" and r[3]==b"STEP_DOWN" for r in records))
+        self.assertTrue(any(r[0]=="/ShotDetail/test_feed_enabled" and r[1]=="boolean" and r[3]==b"\x00" for r in records))
+        self.assertTrue(any(r[0]=="/ShotDetail/shoot_transfer_setting_power" and struct.unpack("<d",r[3])[0]==.425 for r in records))
+
     def test_detail_only_replay_and_raw_pedro_frame(self):
         path=self.csv("shot_detail.csv",detail=True)
         converter.convert([path],self.output,frame="pedro")

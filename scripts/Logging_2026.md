@@ -5,6 +5,16 @@ Logging is integrated into `Pickles2026Teleop`, `CloseShootingAlone`, `CloseWith
 Implementation lives in `teamcode/logging`, with small lifecycle calls in each OpMode.
 There is no hood data and no dependency on the 2025 controllers or WPILib on the robot.
 
+**Shot Recommended 2026**, **Flywheel Model 2026**, **Shot Compare 2026** and
+**Shot Repeatability 2026** are stationary test autonomous programs documented in
+[Shot_Experiments_2026.md](Shot_Experiments_2026.md). They add typed trial/profile/
+condition/phase metadata, a frozen `TEST_PLAN`, and feed video cues to these same logs.
+The unloaded model program records `test_feed_enabled=false` and a confirmed load
+of zero, with no automatic feed/shot event.
+Intake/transfer shot-feed powers, velocity/power commands and measured motor RPMs
+are included; the optional feeding matrix changes only scoped test values.
+Normal opmode defaults are restored on completion, Stop and exceptional cleanup.
+
 Shooter power/startup/boost configuration is documented in
 [Shooter_Power_2026_Setup.md](Shooter_Power_2026_Setup.md). Its new behavior defaults
 off; existing slew, voltage compensation, boost floor and timing are preserved.

@@ -35,7 +35,7 @@ try {
     $profileClasses = Join-Path $profileWork 'classes'
     New-Item -ItemType Directory -Force -Path $profileClasses | Out-Null
     $profileChecks = @('ShooterConfiguration2026Test', 'Logging2026Test',
-        'TurretShotSequence2026Test', 'IntakeLedFeedback2026Test', 'IntakeCounting2026Test')
+        'TurretShotSequence2026Test', 'IntakeLedFeedback2026Test', 'IntakeCounting2026Test', 'ShotExperiment2026Test')
     $profileSources = @($profileChecks | ForEach-Object { Join-Path $profileRepo "scripts/tests/$_.java" })
     & javac -cp $profileClasspath -d $profileClasses @profileSources
     if ($LASTEXITCODE -ne 0) { throw 'Desktop test compilation failed.' }

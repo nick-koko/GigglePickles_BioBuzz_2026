@@ -16,7 +16,11 @@ public final class RobotLogFrame2026 {
             + "turret_velocity_deg_s,turret_aim_ready,turret_reachable,"
             + "dropped_match_rows,dropped_detail_rows,writer_queue_rows,"
             + "shooter_power_profile,shooter_startup_elapsed_s,shooter_startup_exit_reason,"
-            + "intake_capacity_override,ball_count_recovery_events").split(",");
+            + "intake_capacity_override,ball_count_recovery_events,test_suite,test_run_label,test_battery_condition,"
+            + "test_trial_id,test_attempt_id,test_profile,test_condition,test_repetition,test_phase,"
+            + "test_trial_elapsed_s,test_phase_elapsed_s,test_condition_elapsed_s,test_initial_target_rpm,"
+            + "test_final_target_rpm,test_initial_measured_rpm,test_target_ramp_s,test_feed_delay_s,"
+            + "test_confirmed_load,test_abort_reason,test_feed_enabled").split(",");
 
     public String session = "", opmode = "", phase = "", profile = "", stage = "", plan = "";
     public double timeMs, periodMs, previousCaptureMs;
@@ -45,8 +49,15 @@ public final class RobotLogFrame2026 {
     public double shooterStartupElapsed;
     public boolean intakeCapacityOverride;
     public int ballCountRecoveryEvents;
+    public String testSuite="",testRunLabel="",testBatteryCondition="",testProfile="",testCondition="",testPhase="",testAbortReason="";
+    public int testTrialId,testAttemptId,testRepetition,testConfirmedLoad;
+    public boolean testFeedEnabled=true;
+    public double testTrialElapsed=Double.NaN,testPhaseElapsed=Double.NaN,testConditionElapsed=Double.NaN;
+    public double testInitialTarget=Double.NaN,testFinalTarget=Double.NaN,testInitialMeasured=Double.NaN;
+    public double testRampSeconds=Double.NaN,testFeedDelaySeconds=Double.NaN;
 
     public Object[] values(String event, String note) {
+        boolean experiment=!testSuite.isEmpty();
         return new Object[]{1, session, opmode, phase, profile, timeMs, epochMs, loop, periodMs,
                 previousCaptureMs, event, note, stage, plan, x, y, heading, vx, vy, omega,
                 busy, pathIndex, pathT, pathHeading, targetX, targetY, aimRequested,
@@ -57,6 +68,12 @@ public final class RobotLogFrame2026 {
                 jamReverse, flower, turretMode, turretState, turretMeasured, turretTarget,
                 turretRelative, turretVelocity, turretReady, turretReachable,
                 droppedMatch, droppedDetail, queueRows, shooterPowerProfile,
-                shooterStartupElapsed, shooterStartupExitReason, intakeCapacityOverride, ballCountRecoveryEvents};
+                shooterStartupElapsed, shooterStartupExitReason, intakeCapacityOverride, ballCountRecoveryEvents,
+                testSuite,testRunLabel,testBatteryCondition,experiment?testTrialId:null,experiment?testAttemptId:null,
+                testProfile,testCondition,experiment?testRepetition:null,testPhase,
+                experiment?testTrialElapsed:null,experiment?testPhaseElapsed:null,experiment?testConditionElapsed:null,
+                experiment?testInitialTarget:null,experiment?testFinalTarget:null,experiment?testInitialMeasured:null,
+                experiment?testRampSeconds:null,experiment?testFeedDelaySeconds:null,experiment?testConfirmedLoad:null,testAbortReason,
+                experiment?testFeedEnabled:null};
     }
 }

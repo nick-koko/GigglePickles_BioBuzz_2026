@@ -15,7 +15,21 @@ public final class MatchLogRecorder2026 {
         if (enabled && !enabledPreviously) event(frame, "LOG_RESUME", "Basic stream enabled");
         if (enabled && previous == null && frame.sequenceId > 0)
             event(frame, "SHOT_START", "First observed feed sequence; not a verified launch");
+        if(enabled && previous==null && !frame.testSuite.isEmpty()) {
+            if(frame.testAttemptId>0)event(frame,"TEST_TRIAL_START",frame.testFeedEnabled?
+                    "First observed test attempt; operator confirmed four loaded":"First observed unloaded test; operator confirmed empty");
+            event(frame,"TEST_PHASE",frame.testPhase);
+        }
         if (enabled && previous != null) {
+            if(!frame.testSuite.isEmpty()) {
+                if(frame.testAttemptId>0 && frame.testAttemptId!=previous.testAttemptId)
+                    event(frame,"TEST_TRIAL_START",frame.testFeedEnabled?
+                            "Operator confirmed four loaded; not a sensor-verified ball count":"Operator confirmed empty; no automatic feeding");
+                if(!frame.testPhase.equals(previous.testPhase) || frame.testTrialId!=previous.testTrialId)
+                    event(frame,"TEST_PHASE",frame.testPhase);
+                if(frame.testPhase.equals("FEEDING") && !previous.testPhase.equals("FEEDING"))
+                    event(frame,"TEST_FEED_CUE","White LED cue at commanded feed; not measured ball contact/exit");
+            }
             if (frame.sequenceId != previous.sequenceId)
                 event(frame, "SHOT_START", "Feed sequence commanded; not a verified launch");
             if (previous.sequenceActive && (!frame.sequenceActive || frame.sequenceId != previous.sequenceId))

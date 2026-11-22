@@ -98,6 +98,8 @@ public final class RobotLogging2026 {
     private int previousBeams = -1;
     private final int[] blockEdges = new int[4], clearEdges = new int[4];
     private RobotLogFrame2026 latest;
+    private ShotExperimentLogContext2026 experimentContext;
+    private final List<Class<?>> extraConfigurationTypes = new ArrayList<>();
 
     public void start(String opmode, String phase, ShotSequenceController2026 sequence,
                       boolean robotAvailable) {
@@ -123,6 +125,7 @@ public final class RobotLogging2026 {
         Arrays.fill(clearEdges, 0);
         captureError = lastMatchConfiguration = lastDetailConfiguration = "";
         contextSet = detailPreviously = false;
+        experimentContext = null;
         started = true;
     }
 
@@ -131,6 +134,16 @@ public final class RobotLogging2026 {
         contextSet = true;
         aimX = x; aimY = y;
         aimRequested = aim; fireRequested = requested; firePermitted = permitted;
+    }
+
+    public void setExperimentContext(ShotExperimentLogContext2026 context) { experimentContext=context; }
+    public void registerConfigurationClass(Class<?> type) {
+        if(!extraConfigurationTypes.contains(type))extraConfigurationTypes.add(type);
+    }
+    /** Call immediately after update(), so this event uses that loop's fresh context/time. */
+    public void event(String event,String note) {
+        if(started && ENABLE_MATCH_LOG && recorder!=null && latest!=null && captureError.isEmpty())
+            recorder.event(latest,event,note);
     }
 
     public void update(Pose pose, Follower follower, String stage, String plan, String rpmSource) {
@@ -212,6 +225,7 @@ public final class RobotLogging2026 {
         f.periodMs = lastSampleNanos == 0 ? Double.NaN : (now - lastSampleNanos) / 1e6;
         lastSampleNanos = now; f.loop = ++loop; f.previousCaptureMs = previousCaptureMs;
         f.stage = stage; f.plan = plan; f.rpmSource = rpmSource;
+        if(experimentContext!=null)experimentContext.copyTo(f);
         if (pose != null) { f.x = pose.getX(); f.y = pose.getY(); f.heading = Math.toDegrees(pose.getHeading()); }
         if (follower != null) {
             f.vx = follower.getVelocity().getXComponent();
@@ -403,6 +417,7 @@ public final class RobotLogging2026 {
                 ShooterSubsystem2026.class, ShotSequenceController2026.class, IntakeWithSensorsSubsystem2026.class,
                 TurretSubsystem2026.class, FlowerIntakeSubsystem2026.class, Pickles2026Teleop.class,
                 ShotCalibrationTable2026.class));
+        types.addAll(extraConfigurationTypes);
         try { types.add(Class.forName("org.firstinspires.ftc.teamcode.pedroPathing." + opmode)); }
         catch (ClassNotFoundException ignored) { /* Synthetic test session. */ }
         for (Class<?> type : types) for (Field f : type.getFields()) {

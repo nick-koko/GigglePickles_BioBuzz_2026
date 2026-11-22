@@ -18,6 +18,7 @@ public final class Logging2026Test {
         eventsAndPause();
         shooterProfileEvents();
         intakeRecoveryAndOverrideEvents();
+        experimentContextAndEvents();
         detailSwitchAvoidsMotorReads();
         configurationIncludesCalibration();
         deferredWrites();
@@ -148,6 +149,50 @@ public final class Logging2026Test {
         recorder.update(released,true,1000);
         check("beam recovery event between periodic samples",count(rows,"BALL_COUNT_RECOVERY")==1);
         check("held and released override events",count(rows,"INTAKE_OVERRIDE")==2);
+    }
+
+    private static void experimentContextAndEvents() throws Exception {
+        ShotExperimentLogContext2026 context=new ShotExperimentLogContext2026();
+        context.suite="COMPARE_FEED_POWER";context.profile="TRANSFER_MILD";context.condition="COLD";
+        context.runLabel="four_weights";context.batteryCondition="FRESH";
+        context.trialId=2;context.attemptId=3;context.repetition=1;context.confirmedLoad=4;
+        context.phase="WAITING_TO_FEED";context.initialTarget=0;context.finalTarget=3196;
+        context.initialMeasured=0;context.feedDelaySeconds=2;context.trialElapsed=2.1;
+        RobotLogFrame2026 f=frame(0,0,false,15);context.copyTo(f);context.trialId=99;
+        check("experiment context is copied, not retained by mutable reference",f.testTrialId==2);
+        Map<String,Object> columns=new HashMap<>();Object[] values=f.values("SAMPLE","");
+        for(int i=0;i<values.length;i++)columns.put(RobotLogFrame2026.HEADER[i],values[i]);
+        check("experiment suite schema aligned",columns.get("test_suite").equals("COMPARE_FEED_POWER"));
+        check("experiment condition schema aligned",columns.get("test_condition").equals("COLD"));
+        check("operator confirmed load is separate from tracked count",columns.get("test_confirmed_load").equals(4) && f.ballCount==0);
+        check("experiment final target schema aligned",columns.get("test_final_target_rpm").equals(3196.0));
+        check("loaded trial explicitly marks feeding enabled",columns.get("test_feed_enabled").equals(true));
+        List<Object[]> rows=new ArrayList<>();
+        MatchLogRecorder2026 recorder=new MatchLogRecorder2026((d,v)->{rows.add(v);return true;});
+        recorder.update(f,true,1000);
+        check("first observed test attempt has start event",count(rows,"TEST_TRIAL_START")==1);
+        RobotLogFrame2026 feeding=frame(1,1,true,15);
+        context.trialId=2;context.phase="FEEDING";context.copyTo(feeding);
+        recorder.update(feeding,true,1000);
+        check("feed LED cue has timestamped marker",count(rows,"TEST_FEED_CUE")==1);
+        check("phase changes recorded between basic samples",count(rows,"TEST_PHASE")==2);
+        context.suite="UNLOADED_STARTUP_AND_COAST";context.feedEnabled=false;context.confirmedLoad=0;
+        context.phase="UNLOADED_HOLD";context.attemptId=4;
+        RobotLogFrame2026 empty=frame(2,0,false,0);context.copyTo(empty);
+        check("unloaded frame records empty and feed disabled",!empty.testFeedEnabled&&empty.testConfirmedLoad==0);
+        List<Object[]> unloadedRows=new ArrayList<>();
+        MatchLogRecorder2026 unloadedRecorder=new MatchLogRecorder2026((d,v)->{unloadedRows.add(v);return true;});
+        unloadedRecorder.update(empty,true,1000);
+        context.phase="COAST_CAPTURE";RobotLogFrame2026 coast=frame(3,0,false,0);context.copyTo(coast);
+        unloadedRecorder.update(coast,true,1000);
+        check("unloaded phases have no shot or feed cue event",count(unloadedRows,"SHOT_START")==0&&count(unloadedRows,"TEST_FEED_CUE")==0);
+        check("unloaded trial still has start/phase events",count(unloadedRows,"TEST_TRIAL_START")==1&&count(unloadedRows,"TEST_PHASE")==2);
+        RobotLogging2026 logging=new RobotLogging2026();
+        logging.start("Test","TUNING",new ShotSequenceController2026(),false);
+        logging.registerConfigurationClass(org.firstinspires.ftc.teamcode.testing.shots.ShotExperimentSettings2026.class);
+        Method config=RobotLogging2026.class.getDeclaredMethod("configuration");config.setAccessible(true);
+        check("experiment Panels configuration included when registered",((String)config.invoke(logging)).contains("ShotExperimentSettings2026.TARGET_RPM="));
+        logging.stop();
     }
 
     private static void detailSwitchAvoidsMotorReads() throws Exception {

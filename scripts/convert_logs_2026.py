@@ -61,7 +61,8 @@ class WpiLog:
 TEXT_FIELDS = set("session_id opmode phase profile event note stage plan rpm_source "
                   "sequence_end_reason intake_mode flower_position turret_mode turret_state "
                   "intake_applied_control_mode manual_motor_test turret_status "
-                  "shooter_power_profile shooter_startup_exit_reason".split())
+                  "shooter_power_profile shooter_startup_exit_reason test_suite test_run_label "
+                  "test_battery_condition test_profile test_condition test_phase test_abort_reason".split())
 
 
 def scalar(value: str, field: str) -> tuple[str, bytes] | None:
