@@ -24,6 +24,7 @@ public final class ShotExperimentSettings2026 {
     public static double MODEL_PREPARE_SECONDS = 3.0;
     public static double MODEL_OBSERVE_SECONDS = 2.0;
     public static double MODEL_HOLD_SECONDS = 2.0;
+    public static double MODEL_BETWEEN_TRIAL_SECONDS = 1.0;
     // Metadata only; set these to the actual physical flywheel for each dataset.
     public static int FLYWHEEL_WEIGHT_COUNT = 4;
     public static double FLYWHEEL_DIAMETER_MM = 72.0;

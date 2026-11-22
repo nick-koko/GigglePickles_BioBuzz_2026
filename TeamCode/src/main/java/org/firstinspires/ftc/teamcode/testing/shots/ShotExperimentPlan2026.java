@@ -53,6 +53,7 @@ public final class ShotExperimentPlan2026 {
     }
     public final List<Trial> trials;
     public final double prepareSeconds,recoverySeconds,stoppedRpm,stoppedStableSeconds,coastTimeoutSeconds,unloadedHoldSeconds;
+    public final double unloadedBetweenSeconds;
     public final String suite,runLabel,batteryCondition;
     public final boolean detailedLogging;
     private ShotExperimentPlan2026(List<Trial> trials,boolean comparison) {
@@ -63,6 +64,7 @@ public final class ShotExperimentPlan2026 {
     ShotExperimentPlan2026(List<Trial> trials,String suite,double prepare,double recovery,double unloadedHold) {
         this.trials=Collections.unmodifiableList(new ArrayList<>(trials));
         prepareSeconds=prepare;recoverySeconds=recovery;unloadedHoldSeconds=unloadedHold;
+        unloadedBetweenSeconds=ShotExperimentSettings2026.MODEL_BETWEEN_TRIAL_SECONDS;
         stoppedRpm=ShotExperimentSettings2026.STOPPED_RPM_THRESHOLD;
         stoppedStableSeconds=ShotExperimentSettings2026.STOPPED_STABLE_SECONDS;
         coastTimeoutSeconds=ShotExperimentSettings2026.COAST_TIMEOUT_SECONDS;
@@ -223,7 +225,8 @@ public final class ShotExperimentPlan2026 {
     public String manifest() {
         StringBuilder s=new StringBuilder(suite).append('\n');
         s.append("prepare_s=").append(prepareSeconds).append(" recovery_s=").append(recoverySeconds)
-                .append(" unloaded_hold_s=").append(unloadedHoldSeconds).append(" stopped_rpm=").append(stoppedRpm)
+                .append(" unloaded_hold_s=").append(unloadedHoldSeconds).append(" unloaded_between_s=").append(unloadedBetweenSeconds)
+                .append(" stopped_rpm=").append(stoppedRpm)
                 .append(" stopped_stable_s=").append(stoppedStableSeconds).append(" coast_timeout_s=").append(coastTimeoutSeconds)
                 .append(" run_label=").append(runLabel).append(" battery_label=").append(batteryCondition).append('\n');
         Set<Profile> profiles=new LinkedHashSet<>();

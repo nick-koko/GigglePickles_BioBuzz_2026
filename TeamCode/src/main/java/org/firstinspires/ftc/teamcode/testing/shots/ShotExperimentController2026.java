@@ -1,9 +1,9 @@
 package org.firstinspires.ftc.teamcode.testing.shots;
 
-/** Nonblocking, clock-driven test sequencer. A new ready-button edge is required for every attempt. */
+/** Nonblocking sequencer. Loaded trials require confirmation; unloaded trials auto-advance after initial confirmation. */
 public final class ShotExperimentController2026 {
     public enum Phase { WAITING_FOR_LOAD, COASTING_TO_STOP, PREPARING_INITIAL_RPM, TARGET_RAMP,
-        WAITING_TO_FEED, FEEDING, RECOVERY, UNLOADED_HOLD, COAST_CAPTURE, PAUSED, COMPLETE }
+        WAITING_TO_FEED, FEEDING, RECOVERY, UNLOADED_HOLD, COAST_CAPTURE, BETWEEN_UNLOADED_TRIALS, PAUSED, COMPLETE }
     public interface Ports {
         double measuredRpm();
         void applyProfile(ShotExperimentPlan2026.Profile profile);
@@ -44,12 +44,15 @@ public final class ShotExperimentController2026 {
         if(abortPressed) { pause(now,"OPERATOR_STOP");return; }
         if(reverseHeld && !canReload()) { pause(now,"MANUAL_REVERSE");return; }
         if(canReload()) {
-            if(skipPressed) { skipped++;result("SKIPPED",trial().id);advance(now);return; }
+            if(skipPressed) { skipped++;result("SKIPPED",trial().id);advance(now,false);return; }
             if(ready && !reverseHeld)begin(now);
             return;
         }
         ShotExperimentPlan2026.Trial trial=trial();
         switch(phase) {
+            case BETWEEN_UNLOADED_TRIALS:
+                if(seconds(now,phaseStart)>=plan.unloadedBetweenSeconds)begin(now);
+                break;
             case COASTING_TO_STOP:
                 if(!Double.isFinite(ports.measuredRpm()) || Math.abs(ports.measuredRpm())>plan.stoppedRpm)stoppedSince=0;
                 else {
@@ -121,15 +124,17 @@ public final class ShotExperimentController2026 {
         ports.spin(trial().rampSeconds>0?trial().initialTargetRpm:trial().targetRpm);
         setPhase(trial().rampSeconds>0?Phase.TARGET_RAMP:Phase.WAITING_TO_FEED,now);
     }
-    private void advance(long now) {
+    private void advance(long now,boolean completedNormally) {
+        boolean unloadedCompleted=completedNormally&&!trial().feedEnabled;
         ports.stopCollection();index++;
         if(index>=plan.trials.size()) { ports.stopAll();setPhase(Phase.COMPLETE,now);return; }
         if(trial().condition==ShotExperimentPlan2026.Condition.COLD)ports.stopShooter();
         // Coast during reload where possible; keep the motor running for warm trials.
         stoppedSince=0;reason="";
-        setPhase(Phase.WAITING_FOR_LOAD,now);
+        // Keep a distinct phase so the completed trial/result is logged before the next attempt begins.
+        setPhase(unloadedCompleted&&!trial().feedEnabled?Phase.BETWEEN_UNLOADED_TRIALS:Phase.WAITING_FOR_LOAD,now);
     }
-    private void finish(long now) { completed++;result("COMPLETE",trial().id);advance(now); }
+    private void finish(long now) { completed++;result("COMPLETE",trial().id);advance(now,true); }
     private void pause(long now,String reason) {
         ports.stopAll();this.reason=reason;result("ABORTED",trial().id);setPhase(Phase.PAUSED,now);
     }

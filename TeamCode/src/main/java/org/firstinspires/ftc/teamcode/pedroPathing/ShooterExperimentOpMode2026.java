@@ -51,7 +51,8 @@ public abstract class ShooterExperimentOpMode2026 extends NextFTCOpMode {
                 ShotExperimentSettings2026.MODEL_RPM_LOW,ShotExperimentSettings2026.MODEL_RPM_CENTER,ShotExperimentSettings2026.MODEL_RPM_HIGH);
         else telemetry.addData("Target RPM",ShotExperimentSettings2026.TARGET_RPM);
         telemetry.addData("Battery/run label",ShotExperimentSettings2026.BATTERY_CONDITION+" / "+ShotExperimentSettings2026.RUN_LABEL);
-        telemetry.addData("After Play",unloaded()?"EMPTY robot; fresh Y confirms empty/start each trial":"Refill to FOUR, then fresh Y to confirm/start each trial");
+        telemetry.addData("After Play",unloaded()?"EMPTY robot; fresh Y starts batch; remaining trials advance automatically":"Refill to FOUR, then fresh Y to confirm/start each trial");
+        if(unloaded())telemetry.addData("Automatic interval","%.2f s between trials",ShotExperimentSettings2026.MODEL_BETWEEN_TRIAL_SECONDS);
         telemetry.addData("Controls",unloaded()?"A disabled; B reverse; X pause/stop; dpad right skips while waiting":
                 "A collect; GP2 hold A intake-only override; B reverse; X pause/stop; dpad right skip while waiting");
         telemetry.update();
@@ -129,7 +130,7 @@ public abstract class ShooterExperimentOpMode2026 extends NextFTCOpMode {
         telemetry.addData("Battery raw / filtered","%.2f / %.2f V",shooter.getBatteryVoltageRaw(),shooter.getBatteryVoltageFiltered());
         if(controller.canReload())telemetry.addData("Next action",upcoming.feedEnabled?
                 "Refill to FOUR total; release Y, then press Y. A loads; X stops; dpad right skips.":
-                "Confirm EMPTY robot; release Y, then press Y. No automatic feeding. X stops; dpad right skips.");
+                "Confirm EMPTY robot; release Y, then press Y to start/resume batch. Trials auto-advance. X stops.");
         if(!controller.getReason().isEmpty())telemetry.addData("Pause reason",controller.getReason());
         logging.addTelemetry(telemetry);telemetry.update();
     }

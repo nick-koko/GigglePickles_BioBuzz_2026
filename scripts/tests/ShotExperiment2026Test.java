@@ -17,7 +17,7 @@ public final class ShotExperiment2026Test {
         try {
             planMatrixAndRestoration();feedPowerProfiles();immutableAndInvalidPlans();
             coldTimingAndFreshReady();coastTimeoutAndPause();runningRampsAndNoRpmGate();skipAndCompletion();
-            recommendedBatches();modelPlansAndValidation();unloadedSequencing();
+            recommendedBatches();modelPlansAndValidation();unloadedSequencing();automaticUnloadedBatches();
             check("all normal configuration restored at end",normalStart.equals(snapshot(NORMAL)));
         } finally { restore(testStart);restore(normalStart); }
         System.out.println("Passed "+checks+" automated shot experiment checks.");
@@ -306,6 +306,7 @@ public final class ShotExperiment2026Test {
     private static void unloadedSequencing() throws Exception {
         defaults();ShotExperimentSettings2026.MODEL_OBSERVE_SECONDS=.1;ShotExperimentSettings2026.MODEL_STEP_RAMP_SECONDS=0;
         ShotExperimentSettings2026.MODEL_HOLD_SECONDS=.1;ShotExperimentSettings2026.STOPPED_STABLE_SECONDS=.05;
+        ShotExperimentSettings2026.MODEL_BETWEEN_TRIAL_SECONDS=0;
         ShotExperimentSettings2026.COAST_TIMEOUT_SECONDS=1;
         ShotExperimentPlan2026 p=model();Fake f=new Fake();
         ShotExperimentController2026 c=new ShotExperimentController2026(p,f,ns(0));
@@ -319,8 +320,9 @@ public final class ShotExperiment2026Test {
         tick(c,f,.5,false,false,false,false);check("coast waits for measured stop",c.getCompletedCount()==0);
         f.rpm=0;tick(c,f,.6,true,false,false,false);f.rpm=100;tick(c,f,.63,true,false,false,false);
         f.rpm=0;tick(c,f,.7,true,false,false,false);tick(c,f,.75,true,false,false,false);
-        check("coast stable-zero completes",c.getCompletedCount()==1&&c.canReload());
-        tick(c,f,.8,true,false,false,false);check("holding Y cannot restart unloaded",c.getAttemptId()==1);
+        check("coast stable-zero queues next trial",c.getCompletedCount()==1&&c.getPhase()==ShotExperimentController2026.Phase.BETWEEN_UNLOADED_TRIALS);
+        check("completed trial metadata retained before next attempt",c.trialForLog().id==1&&c.getLastResultTrialId()==1);
+        tick(c,f,.8,true,false,false,false);check("next unloaded trial starts automatically",c.getAttemptId()==2);
         tick(c,f,.81,false,false,false,false);tick(c,f,.82,true,false,false,false);
         tick(c,f,.83,false,false,false,false);tick(c,f,.88,false,false,false,false);
         f.rpm=3200;tick(c,f,.98,false,false,false,false);tick(c,f,1.08,false,false,false,false);
@@ -334,8 +336,48 @@ public final class ShotExperiment2026Test {
         f.rpm=2990;tick(c,f,.1,false,false,false,false);near("step final 3200",f.target,3200);
         near("actual model starting RPM recorded",c.getInitialMeasuredRpm(),2990);
         tick(c,f,2.1,false,false,false,false);tick(c,f,4.1,false,false,false,false);
-        check("step completes without stopping warm motor",c.canReload()&&c.getCompletedCount()==1&&f.enabled&&f.stops==0);
+        check("step completes without stopping warm motor",c.getPhase()==ShotExperimentController2026.Phase.BETWEEN_UNLOADED_TRIALS
+                &&c.getCompletedCount()==1&&f.enabled&&f.stops==0);
         check("step model never feeds",f.feeds==0&&f.confirmations==0&&f.feedCues==0);defaults();
+    }
+    private static void automaticUnloadedBatches() throws Exception {
+        defaults();ShotExperimentSettings2026.MODEL_BATCH=RecommendedShotPlans2026.ModelBatch.STEP_RESPONSE;
+        ShotExperimentSettings2026.MODEL_PREPARE_SECONDS=.1;
+        ShotExperimentPlan2026 p=model();Fake f=new Fake();
+        ShotExperimentController2026 c=new ShotExperimentController2026(p,f,ns(0));
+        tick(c,f,0,false,false,false,false);check("unloaded initially waits for Y",c.getAttemptId()==0);
+        tick(c,f,.1,true,false,false,false);tick(c,f,.2,false,false,false,false);
+        tick(c,f,2.2,false,false,false,false);tick(c,f,4.2,false,false,false,false);
+        check("fixed interval begins after completed hold",c.getPhase()==ShotExperimentController2026.Phase.BETWEEN_UNLOADED_TRIALS);
+        ShotExperimentSettings2026.MODEL_BETWEEN_TRIAL_SECONDS=0;
+        tick(c,f,5.19,false,false,false,false);check("interval frozen at Play and not early",c.getAttemptId()==1);
+        tick(c,f,5.2,false,false,false,false);check("exact interval auto-starts next attempt",c.getAttemptId()==2);
+        near("next step starting target",f.target,3400);
+        tick(c,f,5.3,false,false,false,false);tick(c,f,7.3,false,false,false,false);tick(c,f,9.3,false,false,false,false);
+        tick(c,f,9.4,false,true,false,false);
+        check("X cancels queued automatic continuation",c.getPhase()==ShotExperimentController2026.Phase.PAUSED);
+        tick(c,f,20,false,false,false,false);check("pause never auto-resumes",c.getAttemptId()==2);
+        tick(c,f,20.1,true,false,false,false);check("fresh Y retries paused trial",c.getAttemptId()==3);
+        tick(c,f,20.2,false,false,false,false);tick(c,f,22.2,false,false,false,false);tick(c,f,24.2,false,false,false,false);
+        tick(c,f,24.3,false,false,false,true);
+        check("B cancels intertrial continuation",c.getPhase()==ShotExperimentController2026.Phase.PAUSED&&c.getReason().equals("MANUAL_REVERSE"));
+        tick(c,f,30,false,false,false,false);check("B release cannot restart batch",c.getAttemptId()==3);
+        tick(c,f,30.1,false,false,true,false);check("manual skip waits for confirmation",c.canReload());
+        defaults();
+        for(RecommendedShotPlans2026.ModelBatch batch:RecommendedShotPlans2026.ModelBatch.values()) {
+            ShotExperimentSettings2026.MODEL_BATCH=batch;p=model();f=new Fake();
+            c=new ShotExperimentController2026(p,f,ns(0),true);
+            tick(c,f,0,true,false,false,false);check("Y held at Play does not start model",c.getAttemptId()==0);
+            tick(c,f,.1,false,false,false,false);tick(c,f,.2,true,false,false,false);
+            for(int i=3;i<=1200&&c.getPhase()!=ShotExperimentController2026.Phase.COMPLETE;i++) {
+                f.rpm=f.enabled?f.target:0;tick(c,f,i*.1,false,false,false,false);
+            }
+            check("single Y completes entire "+batch,c.getPhase()==ShotExperimentController2026.Phase.COMPLETE
+                    &&c.getCompletedCount()==p.trials.size()&&c.getAttemptId()==p.trials.size());
+            check("automatic batch never feeds or confirms balls",f.feeds==0&&f.feedCues==0&&f.confirmations==0);
+            check("automatic completion stops all outputs",!f.enabled&&f.stopAll>0);
+        }
+        defaults();
     }
     private static final class Fake implements ShotExperimentController2026.Ports {
         double rpm,target,now,feedEnd;boolean feeding,enabled;

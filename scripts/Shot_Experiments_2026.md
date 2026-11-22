@@ -87,10 +87,17 @@ boost and feeding tests. All presets remain confined to the test opmodes.
 
 ## Unloaded model data
 
-Select **Flywheel Model 2026**. Remove all balls, then use a fresh **Y** to confirm
-empty/start each displayed trial. A collection and controller 2 A override are disabled.
-B manual reverse remains available for clearing while waiting; X pauses and stops.
-No beam pattern automatically starts a trial. Confirm physically empty before each Y.
+Select **Flywheel Model 2026**. Remove all balls, then use one fresh **Y** to confirm
+empty/start the batch. The remaining unloaded trials advance automatically after a
+fixed `MODEL_BETWEEN_TRIAL_SECONDS` interval (default 1 s), in addition to each trial's
+preparation, hold and coast-down checks. The interval is captured at Play and recorded
+in `TEST_PLAN`; `BETWEEN_UNLOADED_TRIALS` phase timestamps record actual loop timing.
+A collection and controller 2 A override are disabled. X or B interrupts automatic
+continuation and stops the motors; a fresh Y is required to retry/resume. A timeout
+also pauses until a fresh Y. Manual skipping while paused leaves the program waiting
+for confirmation. B manual reverse remains available for clearing while waiting/paused.
+Confirm physically empty before starting or retrying the batch. Loaded-shot programs
+still require fresh Y for every volley.
 
 `MODEL_BATCH` selects:
 
@@ -106,7 +113,7 @@ No beam pattern automatically starts a trial. Confirm physically empty before ea
 
 These use the explicit reference controller with timed boost disabled. `MODEL_RPM_*`,
 `MODEL_SMALL_STEP_RPM`, `MODEL_LARGE_STEP_RPM`, `MODEL_STEP_RAMP_SECONDS`,
-`MODEL_PREPARE_SECONDS`, `MODEL_OBSERVE_SECONDS`, `MODEL_HOLD_SECONDS` and
+`MODEL_PREPARE_SECONDS`, `MODEL_OBSERVE_SECONDS`, `MODEL_HOLD_SECONDS`, `MODEL_BETWEEN_TRIAL_SECONDS` and
 `MODEL_REPETITIONS` configure only these plans. Coast uses the normal test timeout settings.
 RPM/order rotation works as in the loaded batches. The RPMs bracket likely useful
 operation; no-load testing at a particular RPM does not recommend shooting there.
@@ -120,7 +127,7 @@ bench voltage can differ from voltage while driving; use the measured voltage tr
 Set `FLYWHEEL_WEIGHT_COUNT` and `FLYWHEEL_DIAMETER_MM` to the physical configuration.
 They are logged metadata, not an automatic model or controller adjustment.
 
-## First run
+## First loaded-shot run
 
 1. In Panels open **ShotExperimentSettings2026**. Choose `TARGET_RPM` for the actual
    shooting location. The default 3196 is a model tracking reference, not a proven

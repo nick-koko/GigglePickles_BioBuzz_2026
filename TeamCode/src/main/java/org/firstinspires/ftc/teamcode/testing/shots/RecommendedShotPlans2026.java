@@ -97,7 +97,8 @@ public final class RecommendedShotPlans2026 {
                 ShotExperimentSettings2026.MODEL_RPM_HIGH,ShotExperimentSettings2026.MODEL_SMALL_STEP_RPM,
                 ShotExperimentSettings2026.MODEL_LARGE_STEP_RPM})positive("Model RPM/step",value);
         for(double value:new double[]{ShotExperimentSettings2026.MODEL_PREPARE_SECONDS,ShotExperimentSettings2026.MODEL_OBSERVE_SECONDS,
-                ShotExperimentSettings2026.MODEL_HOLD_SECONDS,ShotExperimentSettings2026.MODEL_STEP_RAMP_SECONDS})
+                ShotExperimentSettings2026.MODEL_HOLD_SECONDS,ShotExperimentSettings2026.MODEL_STEP_RAMP_SECONDS,
+                ShotExperimentSettings2026.MODEL_BETWEEN_TRIAL_SECONDS})
             if(!Double.isFinite(value)||value<0)throw new IllegalArgumentException("Model timings must be finite and nonnegative");
         if(ShotExperimentSettings2026.MODEL_OBSERVE_SECONDS<ShotExperimentSettings2026.MODEL_STEP_RAMP_SECONDS)
             throw new IllegalArgumentException("Model observation must include the entire target ramp");
