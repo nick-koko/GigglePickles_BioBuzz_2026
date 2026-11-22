@@ -10,7 +10,7 @@
     boost_duration_s: .5, boost_voltage_scaled: false, boost_bypasses_slew: true,
     overspeed_taper_rpm: 0, period_s: .033, feed_s: 2,
     boost_command_lag_periods: 1, startup_profile:false, startup_up_per_s:10,
-    startup_down_per_s:6, startup_threshold_rpm:200,startup_max_s:2
+    startup_down_per_s:6, startup_threshold_rpm:200,startup_max_s:2,startup_exit_max_slope_rpm_s:200
   };
   const clip = (x, lo, hi) => Math.max(lo, Math.min(hi, x));
   function simulate(plant, settings, load, voltage=12.5, duration=3.5, h=.001, initial={}) {
@@ -41,7 +41,7 @@
         filteredV+=dt/(c.voltage_filter_tau_s+dt)*(voltage-filteredV);
         const mrpm=measured/RAD;
         if(startup) {
-          const stable=Math.abs(mrpm-target)<=50 && Math.abs(mrpm-lastMeasured)/dt<=100;
+          const stable=Math.abs(mrpm-target)<=50 && Math.abs(mrpm-lastMeasured)/dt<=c.startup_exit_max_slope_rpm_s;
           stableSince=stable ? (stableSince===null?t:stableSince) : null;
           if(t>=c.startup_max_s || t>=c.feed_s || (stableSince!==null && t-stableSince>=.15)){
             startup=false;handoff=t;
@@ -130,6 +130,8 @@
   controllerPresets.scaled={...controllerPresets.current,scaleBoost:true,ffMin:.9};
   controllerPresets.combined={...controllerPresets.scaled,down:3};
   controllerPresets['earlier-ramp']={...controllerPresets.combined,boost:.8,boostEnd:.9,delay:.04,taper:100};
+  controllerPresets.MODEL_CANDIDATE={...controllerPresets.current,startup:true,startUp:6,startDown:6,
+    ffMin:.90,ffMax:1.10,scaleBoost:true,boost:.80,boostEnd:.90,delay:.04,taper:100};
   const stateDefaults={...controllerPresets['startup-scaled'],
     weights:4,strength:1,shift:0,width:1,feed:2,view:'sequence',preset:'startup-scaled',showPower:true,
     aScenario:'auto-start',aVoltage:13.8,aInitial:0,aTarget:3196,aRamp:0,

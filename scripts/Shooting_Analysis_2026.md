@@ -274,6 +274,9 @@ velocity. Do that after stationary repeatability is established.
 
 ## 2. Practical test sequence
 
+For the first 30-minute session, follow the [stationary experiment guide](Shot_Experiments_2026.md#first-30-minutes).
+The phases below describe follow-up work for later sessions.
+
 ### Before collecting data
 
 - Preserve one baseline build/configuration and photograph the mechanism.
@@ -306,15 +309,17 @@ measurement system before interpreting subtle contact timing.
 
 No-ball trials at the actual close and far targets establish steady error,
 spin-up, overshoot and whether voltage dependence exists even without feeding.
-Use an operator-controlled fixed wait for the steady-state tests. Separately
+Use the Flywheel Model opmode's timed preparation and hold intervals. Separately
 preserve the real immediate-start autonomous timing for opening-volley tests;
 a long laboratory spin-up would hide the problem you are investigating.
 
 ### Phase 1: opening-volley battery x boost screen
 
 Use one fixed shooting pose, one target RPM, unchanged feed settings and a
-repeatable preload depth. Start with the current opening autonomous RPM for
-the opening-shot experiment; record the actual value rather than assuming 2950.
+repeatable preload depth. Compare controller settings at the common 3196 RPM tracking
+reference. The old 2950 RPM command exploited startup overshoot and slow decay.
+Use the recorded wheel RPM from those meet openers as the historical baseline.
+Once the new controller regulates consistently, bracket the scoring RPM at the fixed shooting pose.
 
 | Condition | Battery condition | Boost | Initial repeats |
 | --- | --- | --- | ---: |

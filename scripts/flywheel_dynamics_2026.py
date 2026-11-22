@@ -69,6 +69,7 @@ class Controller:
     startup_down_per_s: float = 6.0
     startup_threshold_rpm: float = 200.0
     startup_max_s: float = 2.0
+    startup_exit_max_slope_rpm_s: float = 200.0
 
     def __post_init__(self):
         for k, v in asdict(self).items():
@@ -84,7 +85,7 @@ class Controller:
         if not (0 <= self.boost_start_floor <= 1 and 0 <= self.boost_end_floor <= 1):
             raise ValueError('Boost floors must be in [0,1]')
         if min(self.startup_up_per_s, self.startup_down_per_s, self.startup_threshold_rpm,
-               self.startup_max_s) < 0:
+               self.startup_max_s, self.startup_exit_max_slope_rpm_s) < 0:
             raise ValueError('Startup rates, threshold and duration must be nonnegative')
 
 def load_lobes(t, load, omega):
@@ -190,7 +191,8 @@ def simulate(plant, settings, load, voltage=12.5, duration_s=3.5, h=.001,
             vf += elapsed_dt / (settings.voltage_filter_tau_s + elapsed_dt) * (v - vf)
             mrpm = measured / RAD_PER_RPM
             if startup:
-                stable = abs(mrpm-target) <= 50 and abs(mrpm-last_measured_rpm)/elapsed_dt <= 100
+                stable = (abs(mrpm-target) <= 50 and
+                          abs(mrpm-last_measured_rpm)/elapsed_dt <= settings.startup_exit_max_slope_rpm_s)
                 stable_since = t if stable and stable_since is None else stable_since if stable else None
                 # A one-way mode handoff, never a permission gate for feeding.
                 # Timeout/feeding also hands off: shot sag cannot re-arm startup.

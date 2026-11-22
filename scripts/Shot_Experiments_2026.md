@@ -15,6 +15,57 @@ hardware is resolved during Init, as in the normal subsystems. There are no chas
 odometry, turret or flower commands. Manually place and aim the robot at a consistent
 shooting location. These are practice programs, not field autonomous paths.
 
+## First 30 minutes
+
+1. **0–5 min.** Mark a fixed pose and camera position. Fit a fresh battery, manually
+   preload four balls as for autonomous, and leave collection off. Keep detailed logging on.
+2. **5–15 min.** Run **Shot Recommended → QUICK_SCREEN** at **3196 RPM for every profile**.
+   Record the feed LED and ball exits in the same video. Call out each trial ID, any
+   unusual preload, and balls remaining. Press Y after each refill to four total.
+3. **15–25 min.** Empty the robot. Run **Flywheel Model → STARTUP_AND_COAST**, then Stop,
+   select **STEP_RESPONSE** in Panels and restart. Press Y once per batch. Logs suffice
+   for these unloaded tests.
+4. **25–30 min.** Save the three run folders and the loaded-shot video. On a later
+   fresh battery, set `PROFILE_ORDER_OFFSET=1` for Quick Screen so the modeled
+   candidate receives the first manual preload. Record actual voltage for each volley.
+
+**Compare controller tracking at a common command.** Use time from spinup to sustained
+±50 RPM, peak overshoot, actual RPM immediately before feed, and RPM through the last
+visible exit. The 3196 RPM command is a tracking reference. Each Quick Screen condition
+has one volley, so repeat promising settings before choosing between them.
+
+**Compare the old opener by its measured speed.** The team used a 2950 RPM command
+because the original controller overshot and decayed slowly enough to feed while the
+wheel was still faster than 2950. Align the old and new wheel-speed traces at the feed
+command and keep their respective target RPMs visible. Use measured RPM at feed and
+through the volley. The historical logs lack video of individual exits. Once sag and
+startup are repeatable, use `LOADED_RPM_BRACKET` and scoring video to choose the target.
+
+The six league openers commanded 2950 RPM. Their last encoder samples before feed
+were **3129–3171 RPM**, taken 17–28 ms before the command. Their pre-feed peaks
+were **3343–3386 RPM**. Keep those values as observations of the original mechanism
+and controller. Each bound is rounded to the nearest RPM.
+
+To compare a practice folder with those openers, run the following from the repository root
+(Python with NumPy and SciPy). Supply either folder alone to analyze just that session or cohort.
+
+```powershell
+python scripts/compare_flywheel_trials_2026.py "C:/Users/nicko/Downloads/logs2026/LeagueMeet_11-19-2026" "C:/path/to/practice" --output build/flywheel-comparison
+```
+
+`trial_summary.csv` identifies attempts, outcomes, pre-feed measurements and sample timing.
+For loaded cold trials, settling time starts at the first sampled positive command and
+requires a final uninterrupted measured run within ±50 RPM lasting at least 250 ms before feed.
+A blank settling time means the log did not establish that condition.
+`rpm_traces.csv` includes feed-relative timestamps for loaded trials, recorded power,
+voltage and the frozen plant model's predicted encoder response to those inputs.
+Review completed practice attempts separately from interrupted ones. Score the
+existing fit before changing it. Compare unloaded startup/coast first and reserve
+step response as a check on any refit. For loaded shots, mark the first and last
+visible exits against the white cue. The replay uses the original empirical load
+timing and assumes the league wheel with four weights. The exported time axis includes
+the recovery period so the end of the analysis window can be chosen from video.
+
 ## Recommended preset tests
 
 Select **Shot Recommended 2026** and use `RECOMMENDED_BATCH` in Panels. Default
