@@ -6,14 +6,36 @@ chassis P/D/Pedro settings are retained.
 
 ## Choose a mode
 
+For the standalone fixture, activate `pickles_biobuzz_turrettest.xml` and select
+**TeleOp → Test → Turret Bench 2026**. The bench selects tracking internally.
+It uses `Lurret`, `Rurret`, the `shooter_motor2` encoder port, `analog_turret_encoder`
+and the `pinpoint` on the Control Hub. Mount the Pinpoint on the part representing
+the chassis so it turns with the base. Keep it still during Init for IMU calibration.
+
+Play centers and calibrates the turret. Tracking then uses the normal Minimal TeleOp
+start X/Y, starting heading plus Pinpoint yaw, and the normal hive aim point.
+With the current defaults (54.16, 8.5, 90°), rear-facing turret zero and ±130° travel,
+the hive initially lies outside turret travel. Turn the base about 90° counterclockwise
+from above. The heading should approach ±180° and the turret target should move
+inside travel, to about +84°. Telemetry shows heading, reachability, target,
+encoder readings and servo commands. A missing-pods status is expected on this fixture.
+
+Use **GP1 A** to toggle between tracking and manual. In manual, deflect the right
+stick right to increase the turret setpoint or left to decrease it. A tap steps once,
+holding repeats every 0.2 seconds, and releasing holds the target. D-pad up/down
+selects 0.5°, 1°, 2°, 5° (initial), 10° or 15° per step. A returns to tracking
+using the current base heading.
+
+### Competition modes
+
 Set `MODE` before pressing Init (in source or Panels). Changing mode, geometry,
 encoder signs, zero calibration, or preload requires Stop and Init again.
 
 | Mode | Hardware required | Left bumper | Turret behavior |
 | --- | --- | --- | --- |
-| `CHASSIS_ONLY` | No turret hardware | Existing chassis turn toward the goal, with full translation control | No turret commands |
+| `CHASSIS_ONLY` (default) | No turret hardware | Existing chassis turn toward the goal, with full translation control | No turret commands |
 | `FIXED` | Both turret servos | Chassis aims accounting for the fixed turret bearing | Servos hold `FIXED_ANGLE_DEGREES`; no encoder reads |
-| `TRACKING` (default) | Both servos, quadrature and analog encoder | Optional shooter spin-up and range warning as configured | Tracks the selected goal continuously after startup; chassis translation and rotation remain driver controlled |
+| `TRACKING` | Both servos, quadrature and analog encoder | Optional shooter spin-up and range warning as configured | Tracks the selected goal continuously after startup; chassis translation and rotation remain driver controlled |
 
 GP2 right bumper has the same aim-button behavior as GP1 left bumper. Continuous
 tracking respects the configured turret travel limits. `CHASSIS_ONLY` also suits a turret that is mechanically locked

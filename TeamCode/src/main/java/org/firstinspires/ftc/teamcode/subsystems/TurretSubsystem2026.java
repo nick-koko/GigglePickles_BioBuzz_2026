@@ -3,6 +3,7 @@ package org.firstinspires.ftc.teamcode.subsystems;
 import com.bylazar.configurables.annotations.Configurable;
 import com.qualcomm.robotcore.hardware.AnalogInput;
 import com.qualcomm.robotcore.hardware.DcMotor;
+import com.qualcomm.robotcore.hardware.HardwareMap;
 import com.qualcomm.robotcore.hardware.Servo;
 import org.firstinspires.ftc.robotcore.external.Telemetry;
 import org.firstinspires.ftc.teamcode.GlobalRobotData;
@@ -72,17 +73,28 @@ public final class TurretSubsystem2026 implements Subsystem {
 
     @Override
     public void initialize() {
-        config = configuration();
         TurretController2026.Mode selected = java.util.Objects.requireNonNull(MODE, "Turret MODE must be set");
+        initialize(ActiveOpMode.hardwareMap(), selected);
+    }
+
+    /** Independent tracking controller for the turret fixture, with no autonomous handoff. */
+    public static TurretSubsystem2026 createBenchTurret(HardwareMap hardwareMap) {
+        TurretSubsystem2026 bench = new TurretSubsystem2026();
+        bench.initialize(hardwareMap, TurretController2026.Mode.TRACKING);
+        return bench;
+    }
+
+    private void initialize(HardwareMap hardwareMap, TurretController2026.Mode selected) {
+        config = configuration();
         TurretController2026.Hardware hardware = null;
         if (selected != TurretController2026.Mode.CHASSIS_ONLY) {
             // Required device lookups fail during Init. Servo writes are gated by the controller.
-            Servo left = ActiveOpMode.hardwareMap().get(Servo.class, LEFT_SERVO_NAME);
-            Servo right = ActiveOpMode.hardwareMap().get(Servo.class, RIGHT_SERVO_NAME);
+            Servo left = hardwareMap.get(Servo.class, LEFT_SERVO_NAME);
+            Servo right = hardwareMap.get(Servo.class, RIGHT_SERVO_NAME);
             DcMotor encoder = selected == TurretController2026.Mode.TRACKING
-                    ? ActiveOpMode.hardwareMap().get(DcMotor.class, ENCODER_NAME) : null;
+                    ? hardwareMap.get(DcMotor.class, ENCODER_NAME) : null;
             AnalogInput absolute = selected == TurretController2026.Mode.TRACKING
-                    ? ActiveOpMode.hardwareMap().get(AnalogInput.class, ABSOLUTE_ENCODER_NAME) : null;
+                    ? hardwareMap.get(AnalogInput.class, ABSOLUTE_ENCODER_NAME) : null;
             hardware = new TurretController2026.Hardware() {
                 private boolean directionsConfigured;
                 public int encoderTicks() { return encoder.getCurrentPosition(); }
@@ -129,6 +141,8 @@ public final class TurretSubsystem2026 implements Subsystem {
     }
 
     public boolean usesTurretAim() { return controller.getMode() == TurretController2026.Mode.TRACKING; }
+    public void holdCommandedAngle() { controller.setTarget(controller.getCommandedAngle()); }
+    public void stepTarget(double degrees) { controller.setTarget(controller.getTarget() + degrees); }
     public boolean canShoot() { return controller.canShoot(now()); }
     public boolean isAimAligned() {
         return canShoot() && controller.isTargetReachable() && controller.isAimReady()

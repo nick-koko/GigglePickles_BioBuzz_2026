@@ -591,7 +591,7 @@ public class Pickles2026Teleop extends NextFTCOpMode {
         super.onStop();
     }
 
-    private static Pose configuredStartingPose() {
+    static Pose configuredStartingPose() {
         return new Pose(
                 START_X_INCHES,
                 START_Y_INCHES,
@@ -632,7 +632,7 @@ public class Pickles2026Teleop extends NextFTCOpMode {
         else if (shooter.isEnabled()) shooter.stop();
     }
 
-    private static ShotSettings calculateShotSettings(Pose pose) {
+    static ShotSettings calculateShotSettings(Pose pose) {
         // Aim at X = 56 when robot X exceeds the standard goal X of 60.
         double nominalX = pose.getX() > SHOOT_TARGET_X
                 ? SHOOT_TARGET_X_AFTER
@@ -667,7 +667,7 @@ public class Pickles2026Teleop extends NextFTCOpMode {
         }
     }
 
-    private static final class ShotSettings {
+    static final class ShotSettings {
         final double nominalX, nominalY, aimX, aimY, distanceInches, baseRpm, rpm;
         final ShotCalibrationTable2026.Solution table;
         final String source;
