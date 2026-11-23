@@ -1,5 +1,5 @@
 {
-  "auto-start": {"label":"Start of autonomous","voltage":13.8,"initial":0,"target":3196,"ramp":0},
+  "auto-start": {"label":"Autonomous opener trial","voltage":13.8,"initial":0,"target":3100,"ramp":0},
   "auto-late": {"label":"Late autonomous, already spinning","voltage":12.6,"initial":3150,"target":3150,"ramp":1},
   "tele-start": {"label":"Start of teleop","voltage":12.5,"initial":0,"target":3196,"ramp":0},
   "tele-early": {"label":"Early teleop, already spinning","voltage":12.2,"initial":3150,"target":3370,"ramp":1},

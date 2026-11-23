@@ -169,6 +169,10 @@ public final class TurretSubsystem2026 implements Subsystem {
         telemetry.addData("Turret state", controller.getState());
         telemetry.addData("Turret status", controller.getStatus());
         if (controller.getMode() == TurretController2026.Mode.CHASSIS_ONLY) return;
+        if (controller.getMode() == TurretController2026.Mode.TRACKING) {
+            telemetry.addData("Turret analog phase (live)", "%.1f deg", controller.getRawDegrees());
+            telemetry.addData("Expected phase at init center", "%.1f deg", controller.getExpectedCenterPhase());
+        }
         if (controller.getMode() == TurretController2026.Mode.TRACKING
                 && controller.getState() != TurretController2026.State.FAULT) {
             telemetry.addData("Turret quadrature ticks", controller.getCachedEncoderTicks());
@@ -177,7 +181,6 @@ public final class TurretSubsystem2026 implements Subsystem {
         telemetry.addData("Turret angle / target", "%.1f / %.1f deg",
                 controller.getMeasuredAngle(), controller.getTarget());
         telemetry.addData("Turret speed", "%.1f deg/s", controller.getVelocity());
-        telemetry.addData("Turret analog phase", "%.1f deg", controller.getRawDegrees());
         telemetry.addData("Turret servo zero offset", "%.2f deg", controller.getServoOffset());
         telemetry.addData("Turret servo L / R", "%.4f / %.4f",
                 controller.getLeftPosition(), controller.getRightPosition());

@@ -39,7 +39,7 @@ public class IntakeWithSensorsSubsystem2026 implements Subsystem {
     }
 
     public static double INTAKE_FORWARD_RPM = 4000.0;
-    public static double TRANSFER_FORWARD_RPM = 700.0;//main value 4000 => 1000
+    public static double TRANSFER_FORWARD_RPM = 1500.0;//main value 4000 => 1000
     public static double INTAKE_REVERSE_RPM = 3000.0;
     public static double TRANSFER_REVERSE_RPM = 700.0;
     public static double SHOOT_INTAKE_POWER = 0.5; //0.5
@@ -538,6 +538,13 @@ public class IntakeWithSensorsSubsystem2026 implements Subsystem {
     private void recoverBlockedStack(int count) {
         int previous = getBallCount();
         if (count <= previous) return;
+        // A ball arriving from below blocks middle-high before the shooter.
+        // That same overlap cannot establish a second ball, even if it lasts
+        // past the confirmation timer. Wait for a new middle-high blockage
+        // after the first shooter detection. Otherwise recovery can stop the
+        // transfer while the first ball is still advancing toward the gate.
+        if (previous == 1 && blockedSinceNanos[1] != 0
+                && blockedSinceNanos[1] <= blockedSinceNanos[0]) return;
         lastRecoveryFrom = previous;
         lastRecoveryTo = count;
         lastRecoveryBeamMask = cachedBeamMask;

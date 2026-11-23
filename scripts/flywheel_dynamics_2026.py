@@ -30,6 +30,10 @@ class Plant:
     sensor_delay_s: float = 0.0
     calibrated_weight_count: int = 4
     weight_inertia_kg_m2: float = .0000392412
+    viscous_drag_nm_s_rad: float = 0.0
+
+    def drag(self, omega):
+        return self.drag_nm + self.viscous_drag_nm_s_rad * max(0.0, omega)
 
     def with_weights(self, count):
         j = self.inertia_kg_m2 + (count - self.calibrated_weight_count) * self.weight_inertia_kg_m2
@@ -40,7 +44,7 @@ class Plant:
     def accel(self, omega, power, voltage, load_nm=0):
         drive_nm = self.kt_nm_a / self.resistance_ohm * max(
             0.0, power * voltage - self.ke_v_s_rad * omega)
-        return (drive_nm - self.drag_nm - load_nm) / self.inertia_kg_m2
+        return (drive_nm - self.drag(omega) - load_nm) / self.inertia_kg_m2
 
 @dataclass(frozen=True)
 class Controller:
@@ -175,6 +179,8 @@ def simulate(plant, settings, load, voltage=12.5, duration_s=3.5, h=.001,
     stable_since = None
     last_measured_rpm = initial_rpm
     startup_end = None
+    in_band_since = None
+    ready_at = None
     for n in range(int(math.ceil(duration_s / h)) + 1):
         t = min(n * h, duration_s)
         v = float(vfun(t))
@@ -190,6 +196,13 @@ def simulate(plant, settings, load, voltage=12.5, duration_s=3.5, h=.001,
             elapsed_dt = settings.period_s if t == 0 else t - previous_control
             vf += elapsed_dt / (settings.voltage_filter_tau_s + elapsed_dt) * (v - vf)
             mrpm = measured / RAD_PER_RPM
+            if t < settings.feed_s and t >= target_change_s + target_ramp_s:
+                if abs(mrpm - settings.target_rpm) > 75:
+                    in_band_since = None
+                elif in_band_since is None:
+                    in_band_since = t
+                elif ready_at is None and t - in_band_since >= .15:
+                    ready_at = t
             if startup:
                 stable = (abs(mrpm-target) <= 50 and
                           abs(mrpm-last_measured_rpm)/elapsed_dt <= settings.startup_exit_max_slope_rpm_s)
@@ -248,6 +261,7 @@ def simulate(plant, settings, load, voltage=12.5, duration_s=3.5, h=.001,
         'contact_start_s': settings.feed_s + contact_lo,
         'contact_end_s': settings.feed_s + contact_hi,
         'startup_handoff_s': startup_end,
+        'measured_ready_75rpm_150ms_s': ready_at,
         'peak_estimated_drive_current_a': max(r['estimated_drive_current_a'] for r in rows),
     }
     before = [r for r in rows if r['t_s'] < settings.feed_s]
@@ -262,14 +276,18 @@ def simulate(plant, settings, load, voltage=12.5, duration_s=3.5, h=.001,
             all(abs(s['physical_rpm'] - settings.target_rpm) <= 50 for s in eligible[i:])), None)
     return {'settings': asdict(settings), 'rows': rows, 'summary': summary}
 
-def load_model(path):
+def load_model(path, calibration='league'):
     data = json.loads(Path(path).read_text())
-    return Plant(**data['plant']), data['load'], data
+    key = {'league': 'plant', 'startup': 'startup_plant'}[calibration]
+    return Plant(**data[key]), data['load'], data
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--model', type=Path, default=Path(__file__).with_suffix('.json'))
     parser.add_argument('--target', type=float, default=3196)
+    parser.add_argument('--calibration', choices=['league', 'startup'], default='league')
+    parser.add_argument('--tested-startup', action='store_true', help='Use Quick Screen pre-feed settings')
+    parser.add_argument('--fourth-shift-ms', type=float, default=0, help='Shift only the fourth modeled load pulse')
     parser.add_argument('--voltage', type=float, default=12.5)
     parser.add_argument('--down', type=float, default=1.5)
     parser.add_argument('--ff-min', type=float, default=1.0)
@@ -279,10 +297,16 @@ def main():
     parser.add_argument('--taper', type=float, default=0)
     parser.add_argument('--output', type=Path)
     args = parser.parse_args()
-    plant, load, data = load_model(args.model)
+    plant, load, data = load_model(args.model, args.calibration)
+    if not -60 <= args.fourth_shift_ms <= 60:
+        parser.error('--fourth-shift-ms must be between -60 and 60')
+    load = {**load, 'centers_s': [*load['centers_s'][:3], load['centers_s'][3]+args.fourth_shift_ms/1000]}
     ctrl = Controller(target_rpm=args.target, down_slew_per_s=args.down, ff_gain_min=args.ff_min,
         boost_start_floor=args.boost, boost_end_floor=args.boost if args.boost_end is None else args.boost_end,
         boost_voltage_scaled=args.boost_voltage_scaled, overspeed_taper_rpm=args.taper)
+    if args.tested_startup:
+        ctrl = replace(ctrl, startup_profile=True, startup_up_per_s=6, startup_down_per_s=6,
+                       ff_gain_min=.90, ff_gain_max=1.10)
     result = simulate(plant, ctrl, load, voltage=args.voltage)
     print(json.dumps(result['summary'], indent=2))
     if args.output:

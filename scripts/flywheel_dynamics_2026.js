@@ -13,6 +13,7 @@
     startup_down_per_s:6, startup_threshold_rpm:200,startup_max_s:2,startup_exit_max_slope_rpm_s:200
   };
   const clip = (x, lo, hi) => Math.max(lo, Math.min(hi, x));
+  const drag = (plant, omega) => plant.drag_nm + (plant.viscous_drag_nm_s_rad || 0) * Math.max(0, omega);
   function simulate(plant, settings, load, voltage=12.5, duration=3.5, h=.001, initial={}) {
     const c = {...defaults, ...settings};
     const initialRPM=initial.initial_rpm||0,change=initial.target_change_s||0,ramp=initial.target_ramp_s||0;
@@ -22,6 +23,7 @@
     let filteredV=voltage, nextControl=0, previousControl=0, nextOutput=0;
     const history=[w], rows=[];
     let startup=c.startup_profile&&initialRPM<c.startup_threshold_rpm,stableSince=null,lastMeasured=initialRPM,handoff=null;
+    let inBandSince=null, readyAt=null;
     const amps=load.amplitudes_nm, centers=load.centers_s, widths=load.widths_s;
     const gain=load.strength===undefined ? 1 : load.strength;
     const shift=load.shift_s || 0;
@@ -40,6 +42,11 @@
         const dt=t===0 ? c.period_s : t-previousControl;
         filteredV+=dt/(c.voltage_filter_tau_s+dt)*(voltage-filteredV);
         const mrpm=measured/RAD;
+        if(t<c.feed_s && t>=change+ramp) {
+          if(Math.abs(mrpm-c.target_rpm)>75) inBandSince=null;
+          else if(inBandSince===null) inBandSince=t;
+          else if(readyAt===null && t-inBandSince>=.15) readyAt=t;
+        }
         if(startup) {
           const stable=Math.abs(mrpm-target)<=50 && Math.abs(mrpm-lastMeasured)/dt<=c.startup_exit_max_slope_rpm_s;
           stableSince=stable ? (stableSince===null?t:stableSince) : null;
@@ -92,7 +99,7 @@
       if(t>=duration)break;
       const step=Math.min(h,duration-t);
       const drive=plant.kt_nm_a/plant.resistance_ohm*Math.max(0,power*voltage-plant.ke_v_s_rad*w);
-      w=Math.max(0,w+step*(drive-plant.drag_nm-tau)/plant.inertia_kg_m2);
+      w=Math.max(0,w+step*(drive-drag(plant,w)-tau)/plant.inertia_kg_m2);
       sensor+=-Math.expm1(-step/Math.max(.0001,plant.sensor_tau_s))*(w-sensor);
       history.push(sensor);
     }
@@ -108,6 +115,7 @@
       min_contact_rpm:Number.isFinite(minRPM)?minRPM:null,max_contact_rpm:maxRPM,
       load_work_j:sum(energy),full_power_during_contact_s:fullPower,
       contact_start_s:c.feed_s+lo,contact_end_s:c.feed_s+hi,startup_handoff_s:handoff,
+      measured_ready_75rpm_150ms_s:readyAt,
       peak_estimated_drive_current_a:Math.max(...rows.map(r=>r.estimated_drive_current_a))
     };
     if(before.length) {
@@ -132,21 +140,24 @@
   controllerPresets['earlier-ramp']={...controllerPresets.combined,boost:.8,boostEnd:.9,delay:.04,taper:100};
   controllerPresets.MODEL_CANDIDATE={...controllerPresets.current,startup:true,startUp:6,startDown:6,
     ffMin:.90,ffMax:1.10,scaleBoost:true,boost:.80,boostEnd:.90,delay:.04,taper:100};
-  const stateDefaults={...controllerPresets['startup-scaled'],
-    weights:4,strength:1,shift:0,width:1,feed:2,view:'sequence',preset:'startup-scaled',showPower:true,
-    aScenario:'auto-start',aVoltage:13.8,aInitial:0,aTarget:3196,aRamp:0,
+  controllerPresets['tested-startup']={...controllerPresets.current,startup:true,startUp:6,startDown:6,ffMin:.90,ffMax:1.10};
+  const stateDefaults={...controllerPresets['tested-startup'],
+    weights:4,strength:1,shift:0,fourthShiftMs:0,width:1,feed:2,view:'sequence',preset:'tested-startup',showPower:true,
+    calibration:'startup',aScenario:'auto-start',aVoltage:13.8,aInitial:0,aTarget:3100,aRamp:0,
     bScenario:'tele-late',bVoltage:11.8,bInitial:3150,bTarget:3350,bRamp:1};
   function compare(model,state={}) {
     const s={...stateDefaults,...state};
-    const plant={...model.plant,inertia_kg_m2:model.plant.inertia_kg_m2+
-      (s.weights-model.plant.calibrated_weight_count)*model.plant.weight_inertia_kg_m2};
+    const base=s.calibration==='startup' && model.startup_plant ? model.startup_plant : model.plant;
+    const plant={...base,inertia_kg_m2:base.inertia_kg_m2+
+      (s.weights-base.calibrated_weight_count)*base.weight_inertia_kg_m2};
     const load={...model.load,strength:s.strength,shift_s:s.shift,
+      centers_s:model.load.centers_s.map((t,i)=>i===3?t+s.fourthShiftMs/1000:t),
       widths_s:model.load.widths_s.map(x=>x*s.width),amplitudes_nm:model.load.amplitudes_nm.map(x=>x/s.width)};
     const panels=['a','b'].map(prefix=>{
       const voltage=s[prefix+'Voltage'],initialRPM=s[prefix+'Initial'],target=s[prefix+'Target'];
       const initial={initial_rpm:initialRPM,
         initial_power:initialRPM>0?clip((plant.ke_v_s_rad*initialRPM*RAD+
-          plant.drag_nm*plant.resistance_ohm/plant.kt_nm_a)/voltage,0,1):0};
+          drag(plant,initialRPM*RAD)*plant.resistance_ohm/plant.kt_nm_a)/voltage,0,1):0};
       if(initialRPM>0)Object.assign(initial,{initial_target_rpm:initialRPM,target_change_s:.5,target_ramp_s:s[prefix+'Ramp']});
       const current=simulate(plant,{target_rpm:target,feed_s:s.feed},load,voltage,Math.max(3.5,s.feed+1),.001,initial);
       const candidate=simulate(plant,{target_rpm:target,down_slew_per_s:s.down,up_slew_per_s:s.up,

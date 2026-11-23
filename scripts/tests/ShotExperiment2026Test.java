@@ -13,11 +13,12 @@ public final class ShotExperiment2026Test {
     private static Map<Field,Object> normalStart,testStart;
 
     public static void main(String[] args) throws Exception {
-        normalStart=snapshot(NORMAL);testStart=snapshot(ShotExperimentSettings2026.class);
+        normalStart=snapshot(NORMAL);testStart=snapshot(ShotExperimentSettings2026.class,ShotSession2026.class);
         try {
             planMatrixAndRestoration();feedPowerProfiles();immutableAndInvalidPlans();
             coldTimingAndFreshReady();coastTimeoutAndPause();runningRampsAndNoRpmGate();skipAndCompletion();
             recommendedBatches();modelPlansAndValidation();unloadedSequencing();automaticUnloadedBatches();
+            openingAndRunningSessions();
             check("all normal configuration restored at end",normalStart.equals(snapshot(NORMAL)));
         } finally { restore(testStart);restore(normalStart); }
         System.out.println("Passed "+checks+" automated shot experiment checks.");
@@ -377,6 +378,109 @@ public final class ShotExperiment2026Test {
             check("automatic batch never feeds or confirms balls",f.feeds==0&&f.feedCues==0&&f.confirmations==0);
             check("automatic completion stops all outputs",!f.enabled&&f.stopAll>0);
         }
+        defaults();
+    }
+    private static void openingAndRunningSessions() throws Exception {
+        defaults();
+        ShotExperimentSettings2026.RUNNING_PREPARE_SECONDS=.1;
+        ShotExperimentSettings2026.STOPPED_STABLE_SECONDS=.05;
+        ShotExperimentSettings2026.POST_FEED_CAPTURE_SECONDS=.1;
+        ShotExperimentPlan2026 cold,warm;
+        try(ScopedShotSettings2026 scope=new ScopedShotSettings2026()) {
+            cold=ShotSession2026.build(true,scope);warm=ShotSession2026.build(false,scope);
+            check("session plans restore normal settings",normalStart.equals(snapshot(NORMAL)));
+            scope.apply(cold.trials.get(0).profile);
+            check("opening uses tested startup and explicit original boost",
+                    ShooterSubsystem2026.ENABLE_STARTUP_PROFILE && ShooterSubsystem2026.STARTUP_SLEW_UP_PER_SECOND==6
+                    && ShooterSubsystem2026.VOLTAGE_COMP_MIN_GAIN==.9
+                    && !ShotSequenceController2026.ENABLE_RAMPED_BOOST
+                    && ShotSequenceController2026.BOOST_DELAY_SECONDS==.18);
+        }
+        check("eight matching cold and warm trials",cold.trials.size()==8 && warm.trials.size()==8);
+        check("session defaults at intended trial RPM",cold.trials.get(0).targetRpm==3100 && warm.trials.get(0).targetRpm==3100);
+        Fake f=new Fake();ShotExperimentController2026 c=new ShotExperimentController2026(cold,f,ns(0));
+        tick(c,f,0,true,false,false,false);tick(c,f,.01,false,false,false,false);
+        tick(c,f,.06,false,false,false,false);
+        f.rpm=3100;tick(c,f,.2,false,false,false,false);
+        f.rpm=Double.NaN;tick(c,f,.3,false,false,false,false);
+        f.rpm=3100;tick(c,f,.4,false,false,false,false);tick(c,f,.54,false,false,false,false);
+        check("bad sample resets readiness hold",f.feeds==0);
+        tick(c,f,.55,false,false,false,false);
+        check("opening feeds early after full hold",f.feeds==1 && c.getPhase()==ShotExperimentController2026.Phase.FEEDING);
+        tick(c,f,.66,false,false,false,false);tick(c,f,.77,false,false,false,false);
+        check("cold trial stops wheel while waiting for hand preload",!f.enabled && c.canReload());
+        tick(c,f,.8,true,false,false,false);f.rpm=0;
+        tick(c,f,.81,false,false,false,false);tick(c,f,.86,false,false,false,false);
+        tick(c,f,2.87,false,false,false,false);
+        check("readiness timeout pauses and records failed attempt",
+                c.getPhase()==ShotExperimentController2026.Phase.PAUSED
+                && c.getReason().equals("RPM_READY_TIMEOUT") && f.feeds==1 && !f.enabled);
+        f=new Fake();c=new ShotExperimentController2026(warm,f,ns(0));
+        tick(c,f,0,true,false,false,false);
+        check("warm trial starts at running target",f.target==3100);
+        tick(c,f,.1,false,false,false,false);tick(c,f,2.1,false,false,false,false);
+        tick(c,f,2.21,false,false,false,false);tick(c,f,2.32,false,false,false,false);
+        check("warm reload retains spinning wheel",f.enabled && f.stops==0 && c.canReload());
+        for(ShotSession2026.RunningBatch batch:ShotSession2026.RunningBatch.values()) {
+            ShotSession2026.RUNNING_BATCH=batch;
+            try(ScopedShotSettings2026 scope=new ScopedShotSettings2026()) {
+                ShotExperimentPlan2026 plan=ShotSession2026.build(false,scope);
+                int groups=batch==ShotSession2026.RunningBatch.FEED_FAST?5:
+                        batch==ShotSession2026.RunningBatch.FEED_SPEED?4:
+                        batch==ShotSession2026.RunningBatch.RPM_BRACKET?3:2;
+                check("four repetitions per option "+batch,plan.trials.size()==groups*4);
+                check("Init volley count matches plan "+batch,plan.trials.size()==batch.settingsCount*4);
+                for(int i=0;i<plan.trials.size();i++) {
+                    ShotExperimentPlan2026.Trial t=plan.trials.get(i);
+                    check("all running trials and repeat metadata "+batch,
+                            t.condition==ShotExperimentPlan2026.Condition.ALREADY_SPINNING
+                                    &&t.repetition==i%4+1&&t.readyToleranceRpm==0);
+                    if(i%4!=0)check("settings remain identical within group "+batch,
+                            t.profile==plan.trials.get(i-1).profile&&t.targetRpm==plan.trials.get(i-1).targetRpm);
+                }
+                if(batch==ShotSession2026.RunningBatch.BOOST_COMPARISON) {
+                    scope.apply(plan.trials.get(4).profile);
+                    check("second boost group uses early scaled ramp and taper",
+                            ShotSequenceController2026.ENABLE_RAMPED_BOOST
+                                    &&ShotSequenceController2026.ENABLE_BOOST_VOLTAGE_SCALING
+                                    &&ShotSequenceController2026.BOOST_DELAY_SECONDS==.04
+                                    &&ShotSequenceController2026.BOOST_START_POWER==.80
+                                    &&ShotSequenceController2026.BOOST_END_POWER==.90
+                                    &&ShotSequenceController2026.BOOST_OVERSPEED_TAPER_RPM==100);
+                }
+                if(batch==ShotSession2026.RunningBatch.RPM_BRACKET) {
+                    check("bracket groups vary only RPM",plan.trials.get(0).targetRpm==3000
+                            &&plan.trials.get(4).targetRpm==3100&&plan.trials.get(8).targetRpm==3200);
+                }
+                if(batch==ShotSession2026.RunningBatch.FEED_SPEED || batch==ShotSession2026.RunningBatch.FEED_FAST) {
+                    double[][] commands=batch==ShotSession2026.RunningBatch.FEED_FAST?
+                            new double[][]{{.5,.5},{.5,.575},{.575,.5},{.575,.575},{.65,.65}}:
+                            new double[][]{{.5,.5},{.5,.425},{.425,.5},{.425,.425}};
+                    for(int group=0;group<commands.length;group++) {
+                        scope.apply(plan.trials.get(group*4).profile);
+                        near("feed group intake command",IntakeWithSensorsSubsystem2026.SHOOT_INTAKE_POWER,commands[group][0]);
+                        near("feed group transfer command",IntakeWithSensorsSubsystem2026.SHOOT_TRANSFER_POWER,commands[group][1]);
+                        check("feed comparison keeps boost and RPM fixed",
+                                ShotSequenceController2026.BOOST_START_POWER==.8
+                                &&ShotSequenceController2026.BOOST_END_POWER==.9
+                                &&ShotSequenceController2026.BOOST_DELAY_SECONDS==.04
+                                &&ShotSequenceController2026.FEED_SECONDS==1.2
+                                &&ShotSequenceController2026.ENABLE_BOOST_VOLTAGE_SCALING
+                                &&ShotSequenceController2026.BOOST_OVERSPEED_TAPER_RPM==100
+                                &&plan.trials.get(group*4).targetRpm==3100);
+                    }
+                }
+            }
+            check("running batch validation restores parameters",normalStart.equals(snapshot(NORMAL)));
+        }
+        ShotSession2026.RUNNING_BATCH=ShotSession2026.RunningBatch.BOOST_COMPARISON;
+        ShotSession2026.RUNNING_ORDER_OFFSET=1;
+        try(ScopedShotSettings2026 scope=new ScopedShotSettings2026()) {
+            ShotExperimentPlan2026 plan=ShotSession2026.build(false,scope);
+            check("group order offset swaps complete four-volley groups",
+                    plan.trials.get(0).profile.id.equals("MODEL_CANDIDATE")
+                            &&plan.trials.get(4).profile.id.equals("START6_6_FF90_110_ORIGINAL_BOOST"));
+        } finally {ShotSession2026.RUNNING_ORDER_OFFSET=0;}
         defaults();
     }
     private static final class Fake implements ShotExperimentController2026.Ports {

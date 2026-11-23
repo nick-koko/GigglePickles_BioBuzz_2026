@@ -29,6 +29,7 @@ public final class ShotExperimentPlan2026 {
         public final Profile profile;
         public final Condition condition;
         public final double targetRpm,initialTargetRpm,rampSeconds,feedDelaySeconds;
+        public final double readyToleranceRpm,readyStableSeconds;
         public final boolean feedEnabled,recordCoast;
         Trial(int id,int repetition,Profile profile,Condition condition) {
             this(id,repetition,profile,condition,ShotExperimentSettings2026.TARGET_RPM,
@@ -38,6 +39,14 @@ public final class ShotExperimentPlan2026 {
         }
         Trial(int id,int repetition,Profile profile,Condition condition,double target,double step,double ramp,
               double delay,boolean feedEnabled,boolean recordCoast) {
+            this(id,repetition,profile,condition,target,step,ramp,delay,feedEnabled,recordCoast,0,0);
+        }
+        Trial(int id,int repetition,Profile profile,Condition condition,double target,double step,double ramp,
+              double delay,boolean feedEnabled,boolean recordCoast,double tolerance,double stable) {
+            if(!Double.isFinite(tolerance)||!Double.isFinite(stable)||tolerance<0||stable<0
+                    ||(tolerance>0 && (stable<=0||stable>=delay)))
+                throw new IllegalArgumentException("Invalid test readiness tolerance or hold time");
+            readyToleranceRpm=tolerance;readyStableSeconds=stable;
             this.id=id;this.repetition=repetition;this.profile=profile;this.condition=condition;
             targetRpm=target;this.feedEnabled=feedEnabled;this.recordCoast=recordCoast;
             initialTargetRpm=condition==Condition.COLD?0:condition==Condition.STEP_UP?
@@ -235,6 +244,7 @@ public final class ShotExperimentPlan2026 {
             s.append(t.id).append(" ").append(t.profile.id).append(" ").append(t.condition)
                     .append(" initial=").append(t.initialTargetRpm).append(" final=").append(t.targetRpm)
                     .append(" ramp_s=").append(t.rampSeconds).append(" delay_s=").append(t.feedDelaySeconds)
+                    .append(" ready_tolerance_rpm=").append(t.readyToleranceRpm).append(" ready_hold_s=").append(t.readyStableSeconds)
                     .append(" feed=").append(t.feedEnabled).append(" coast_capture=").append(t.recordCoast).append('\n');
         }
         for(Profile p:profiles) {

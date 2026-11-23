@@ -1,6 +1,76 @@
 # Automated stationary shooting experiments
 
-Four selectable **Autonomous → Test** programs are included:
+## Next session
+
+Run **Shot Opening Repeat 2026** for eight cold starts at 3100 RPM.
+Preload the first set before Play; it fires automatically. Hand load each
+remaining set and press Y when ready.
+
+Use **Shot Running Batches 2026** for the running comparisons. During Init,
+D-pad up/down selects the batch, left selects default order, and right selects
+rotated order. Changing batch resets order to default. The selected batch,
+order and automatic volley count appear on telemetry. A intakes and Y shoots.
+
+The normal sequence requires no Panels changes. Each setting runs four
+volleys automatically. Use Panels for target RPM or other tuning adjustments.
+
+The opening program freezes one configuration. Feed is intake 0.50 and transfer
+0.50 for 1.2 s. Flywheel boost is the original flat 0.75 floor, delayed 0.18 s,
+lasting 0.50 s, bypassing slew. Boost voltage scaling and RPM taper are off.
+Feedforward voltage gain is allowed from 0.90 to 1.10.
+
+Then select **Shot Running Batches 2026**. The running RPM defaults to 3100.
+The first fresh Y starts wheel preparation. Every volley gets the existing
+1.5 s preparation plus a two-second fixed observation interval before feed.
+After each volley the wheel stays running while waiting for four balls and
+another fresh Y. A intakes and Y shoots. X stops the motors.
+The default batch `BOOST_COMPARISON` has four volleys with the original
+boost followed by four with the early ramped boost. Both share the 0.90..1.10
+feedforward compensation and the same fixed target and feed commands.
+
+Each group repeats the same setting four times, then the next Y-confirmed
+volley uses the next setting. Telemetry shows the upcoming profile, target and
+repeat number. The plan manifest records every override and trial ordering.
+Trial rows record the profile, repetition, voltage, measured RPM, applied motor
+commands and feed configuration. Abort/retry attempts retain the same trial ID.
+Four repeats means four completed sequences; video/manual notes supply the
+actual score and grouping.
+
+| `ShotSession2026.RUNNING_BATCH` | Settings, in default group order | Total volleys |
+| --- | --- | ---: |
+| `BOOST_COMPARISON` | Original flat 0.75 at 0.18 s; model ramp 0.80 to 0.90 at 0.04 s with voltage scaling and 100 RPM taper | 8 |
+| `BOOST_TIMING` | Model ramp at 0.04 s; same ramp at 0.08 s | 8 |
+| `BOOST_LEVEL` | Model ramp 0.80 to 0.90; same controls with 0.75 to 0.85 | 8 |
+| `FEED_SPEED` | Model boost with intake/transfer 0.50/0.50; 0.50/0.425; 0.425/0.50; 0.425/0.425 | 16 |
+| `FEED_FAST` | Model boost with intake/transfer 0.50/0.50; 0.50/0.575; 0.575/0.50; 0.575/0.575; 0.65/0.65 | 20 |
+| `RPM_BRACKET` | Model controls at running target minus 100, target, target plus 100 RPM | 12 |
+
+Run `BOOST_COMPARISON` first. Use later batches to investigate one factor at
+a time after reviewing the first result. All are already-spinning trials.
+`VOLLEYS_PER_SETTING=4` controls running group size; `VOLLEYS=8` controls
+only the opening program. `RPM_BRACKET_OFFSET` sets the bracket step.
+`RUNNING_ORDER_OFFSET=1` rotates whole groups for a second run to reduce the
+confounding effect of discharging the battery. Compare logged voltage between groups. A group of four is an initial
+sample for variation, so retain outliers and repeat promising comparisons.
+
+Use the first opening batch to measure repeatability before changing a parameter.
+If the group is tight but consistently long/short, adjust RPM for a new batch.
+If the group is wide, compare entry placement, release spacing, launch angle
+and RPM near each contact. Record ball identities and launch order, and rotate
+their order in a separate batch to distinguish a particular ball from a
+particular place in the volley. Keep that change out of the first repeatability
+batch. Capture a fixed side view of the wheel exit and a wide view of the hive,
+with a known length in the flight plane. Count all four balls even when one
+leaves the expected image region.
+
+Assess the opener by complete four-ball success and worst-ball clearance,
+alongside startup time. Assess already-spinning trials by four-ball spread at
+the hive and successful shots across repeated volleys. The wheel model estimates
+RPM response. Flight variation also depends on ball compression, spin, slip,
+exit angle and collisions. A short fourth-ball gap can be successful and is
+useful data when all four trajectories group well.
+
+The four original **Autonomous → Test** programs also remain available:
 
 - **Shot Recommended 2026** provides candidate-centered batches with preset likely-useful
   settings and nearby variations. Start here for the next tuning session.
@@ -15,7 +85,13 @@ hardware is resolved during Init, as in the normal subsystems. There are no chas
 odometry, turret or flower commands. Manually place and aim the robot at a consistent
 shooting location. These are practice programs, not field autonomous paths.
 
-## First 30 minutes
+## First 30 minutes for a model comparison
+
+For a loaded autonomous opener test, mark the actual opening pose and set
+`TARGET_RPM` to the team's best scoring estimate for that pose. The November 22
+screen at 3196 RPM generally shot long. Repeat that command when the purpose is
+to compare models against that dataset. For opening speed and scoring, use the
+intended match RPM and measure Play to feed, Play to fourth exit, and grouping.
 
 1. **0–5 min.** Mark a fixed pose and camera position. Fit a fresh battery, manually
    preload four balls as for autonomous, and leave collection off. Keep detailed logging on.
@@ -279,9 +355,50 @@ Late unloaded recovery is useful model data but is not evidence that a shot went
 ## Feeding power tests
 
 Normal collection uses motor RPM commands (currently intake 4000 / transfer 700).
-Normal **shot feeding uses open-loop power**, currently 0.50 / 0.50. These are different
-settings. No collection speed or normal feeding default has been changed.
+Shot feeding calls `setPower`, currently 0.50 / 0.50, while the motors remain
+in `RUN_USING_ENCODER`. The Hub interprets these as fractions of the configured
+maximum motor velocity and regulates speed. The logged POWER label identifies
+the API command. Actual acceleration, ball slip and motor loading still affect
+ball release spacing.
 
+To test faster feeding, select `ShotSession2026.RUNNING_BATCH=FEED_FAST`.
+This runs five groups of four volleys, all with the same target RPM, model
+candidate boost and 1.2 s feed:
+
+| Group | Intake command | Transfer command | Volleys |
+| --- | ---: | ---: | ---: |
+| Baseline | 0.50 | 0.50 | 4 |
+| Faster transfer | 0.50 | 0.575 | 4 |
+| Faster intake | 0.575 | 0.50 | 4 |
+| Both moderately faster | 0.575 | 0.575 | 4 |
+| Both faster | 0.65 | 0.65 | 4 |
+
+The 0.575 and 0.65 settings request 15% and 30% higher motor velocity than
+baseline. Verify actual speeds during ball movement from the logs. Score
+four-ball grouping, time to fourth exit, release spacing, and RPM dips. A
+shorter gap is acceptable when all four trajectories group consistently.
+Faster feeding could also move ball contact earlier relative to the fixed
+boost window. Record that timing before interpreting a result as a motor
+power or inertia limit. The model's load timing and energy draw should be
+refitted using this evidence instead of assuming unchanged pulses.
+
+For the first feeding investigation after the boost comparisons, prioritize
+`FEED_FAST`. The separate `FEED_SPEED` batch remains available for the
+slower-feed comparison. Each includes a baseline at the beginning so it can
+be assessed with the battery conditions of that run.
+
+For the slower-feed comparison, select **Shot Running Batches
+2026** and `ShotSession2026.RUNNING_BATCH=FEED_SPEED`. Its four groups are
+baseline, transfer-only reduction, intake-only reduction and both reduced,
+for 16 volleys total. Use normal A collection and a fresh Y after confirming
+four balls each time. Target RPM, candidate boost and feed duration are the
+same across groups. At 0.425 the requested motor velocity is 15% below the
+0.50 command. Record all four exits and any balls left after the 1.2 s feed.
+Compare grouping, time between releases and measured feeder RPM during the
+volley as well as flywheel RPM. Pause or stop after any completed group if
+time is limited; partial runs can be analyzed from their completed trial IDs.
+
+`Shot Compare 2026` also provides its original `FEED_POWER` comparison:
 `FEED_MILD_SCALE=0.85` and `FEED_SLOW_SCALE=0.70` scale the captured shot powers.
 With today's baseline, the feed matrix is:
 
@@ -294,8 +411,10 @@ With today's baseline, the feed matrix is:
 | Both slow | 0.350 | 0.350 |
 
 Actual motor RPM and SDK power readbacks are logged every detailed sample, alongside
-the power commands, battery voltage, beam states and flywheel response. Fixed power
-does not imply fixed feeding speed across battery conditions.
+the API commands, battery voltage, beam states and flywheel response. The motor
+controller's power readback in velocity mode is not measured electrical duty.
+Velocity feedback cannot guarantee the same acceleration or ball motion at
+different battery conditions.
 
 `TEST_FEED_SECONDS=0` inherits each profile's feed duration (normally 1.2 s). A positive
 value overrides duration for every trial in the run without editing normal opmode
@@ -303,7 +422,7 @@ settings. `CUSTOM_FEED_SECONDS` and the two `CUSTOM_FEED_*_POWER` values can ins
 define a custom candidate. Do not assume every slower trial empties all four balls
 within the existing timer: inspect/video the result before the next refill.
 
-Slower feeding can change the spacing and duration of ball contact loads. The current
+Changing feed speed can change the spacing and duration of ball contact loads. The current
 model's fixed empirical four-lobe profile must be checked/refitted for these trials;
 evaluate the whole observed volley, not just the original 500 ms timing assumption.
 

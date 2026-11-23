@@ -186,7 +186,12 @@ public final class TurretController2026 {
     public void update(double now) {
         double dt = Math.max(0.0, now - previousTime);
         previousTime = now;
-        if (state == State.DISABLED || state == State.FAULT) return;
+        if (state == State.DISABLED) return;
+        if (state == State.FAULT) {
+            // Keep the alignment display live while the fault stays latched.
+            if (mode == Mode.TRACKING) raw = readRaw();
+            return;
+        }
         if (!Double.isFinite(config.rateLimit) || config.rateLimit <= 0
                 || !Double.isFinite(config.outerKp) || config.outerKp < 0
                 || !Double.isFinite(config.maxTrim) || config.maxTrim < 0
@@ -262,8 +267,7 @@ public final class TurretController2026 {
         if (mode == Mode.TRACKING && config.encoderFallbackEnabled && !servoOnlyFallback) {
             // Compare phases modulo one encoder revolution. This does not choose a
             // potentially ambiguous analog branch (phase repeats every 200 turret degrees).
-            double expectedPhase = (measured - config.absoluteOffset)
-                    * config.encoderRatio / config.absoluteSign;
+            double expectedPhase = expectedRawPhase(measured);
             double error = Math.abs(wrap180(raw - expectedPhase)) / config.encoderRatio;
             if (!Double.isFinite(error) || error > config.encoderDisagreementDegrees) {
                 if (!Double.isFinite(disagreementStarted)) disagreementStarted = now;
@@ -352,6 +356,9 @@ public final class TurretController2026 {
     }
 
     private double quadAngle(int count) { return count * config.quadSign / config.countsPerDegree(); }
+    private double expectedRawPhase(double turretAngle) {
+        return wrap360((turretAngle - config.absoluteOffset) * config.encoderRatio / config.absoluteSign);
+    }
     private double readRaw() {
         double voltage = hardware.absoluteVoltage();
         return !Double.isFinite(voltage) || voltage < 0 || voltage > config.absoluteMaxVoltage + 0.1
@@ -388,6 +395,7 @@ public final class TurretController2026 {
     public double getVelocity() { return velocity; }
     public double getTarget() { return target; }
     public double getRawDegrees() { return raw; }
+    public double getExpectedCenterPhase() { return expectedRawPhase(config.centerAngle); }
     public double getServoOffset() { return servoOffset; }
     public double getLeftPosition() { return leftPosition; }
     public double getRightPosition() { return rightPosition; }

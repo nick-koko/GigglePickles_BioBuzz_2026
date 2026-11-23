@@ -130,6 +130,13 @@ It faults if the centered analog estimate differs by more than 20 degrees from
 the expected center. Correct phase/sign/mechanical setup rather than accepting
 an unknown zero. A fault requires correcting the issue and restarting the opmode.
 
+During tracking Init, compare **Turret analog phase (live)** with **Expected phase
+at init center** while the turret is on its mechanical center witness mark.
+Both readings are in encoder degrees and wrap at 360°. They remain visible and
+the live reading continues to update after a calibration fault. With 81:45
+gearing the same phase recurs every 200° of turret travel, so use the witness
+marks to identify the correct physical alignment.
+
 Target reachability and settled-angle telemetry are informational. Once startup
 is valid, RT remains driver controlled; it does not wait for every aimed shot to
 meet an angle/speed tolerance. Fixed-mode settling is time based because it has

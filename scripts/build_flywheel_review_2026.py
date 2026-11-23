@@ -278,7 +278,8 @@ def build_operating_review(out,plant,load,scenarios):
         for reverse in ([False,True] if s['initial']>0 and s['initial']!=s['target'] else [False]):
             initial,target=(s['target'],s['initial']) if reverse else (s['initial'],s['target'])
             for name,c in cases.items():
-                power=(plant.ke_v_s_rad*initial*2*math.pi/60+plant.drag_nm*plant.resistance_ohm/plant.kt_nm_a)/s['voltage'] if initial else 0
+                omega = initial * 2 * math.pi / 60
+                power=(plant.ke_v_s_rad*omega+plant.drag(omega)*plant.resistance_ohm/plant.kt_nm_a)/s['voltage'] if initial else 0
                 r=simulate(plant,replace(c,target_rpm=target),load,voltage=s['voltage'],initial_rpm=initial,
                     initial_power=min(1,power),initial_target_rpm=initial if initial else None,
                     target_change_s=.5 if initial else 0,target_ramp_s=s['ramp'] if initial else 0)

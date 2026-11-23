@@ -32,6 +32,10 @@ public abstract class ShooterExperimentOpMode2026 extends NextFTCOpMode {
     protected String programLabel() {return comparison()?"PARAMETER COMPARISON":"REPEATABILITY";}
     protected Object selectedGroup() {return comparison()?ShotExperimentSettings2026.COMPARISON_SET:ShotExperimentSettings2026.VERIFICATION_PROFILE;}
     protected boolean unloaded() {return false;}
+    protected boolean startPreloaded() {return false;}
+    protected void updateInitSelection() { }
+    protected void addSelectionTelemetry() { }
+    protected double displayedTargetRpm() {return ShotExperimentSettings2026.TARGET_RPM;}
     public ShooterExperimentOpMode2026() {
         addComponents(new SubsystemComponent(shooter,intake,LEDControlSubsystem2026.INSTANCE),BulkReadComponent.INSTANCE);
     }
@@ -41,17 +45,20 @@ public abstract class ShooterExperimentOpMode2026 extends NextFTCOpMode {
             plan=buildPlan(validation);
         }
         logging.registerConfigurationClass(ShotExperimentSettings2026.class);
+        logging.registerConfigurationClass(ShotSession2026.class);
         telemetry.addData("Shot test","Place and aim robot manually. No chassis/turret commands.");
     }
     @Override public void onWaitForStart() {
+        updateInitSelection();
         telemetry.addData("Program",programLabel());
-        telemetry.addData("Settings","Panels: ShotExperimentSettings2026; changes captured at Play");
         telemetry.addData("Selected group",selectedGroup());
+        addSelectionTelemetry();
         if(unloaded())telemetry.addData("Model low / center / high RPM","%.0f / %.0f / %.0f",
                 ShotExperimentSettings2026.MODEL_RPM_LOW,ShotExperimentSettings2026.MODEL_RPM_CENTER,ShotExperimentSettings2026.MODEL_RPM_HIGH);
-        else telemetry.addData("Target RPM",ShotExperimentSettings2026.TARGET_RPM);
-        telemetry.addData("Battery/run label",ShotExperimentSettings2026.BATTERY_CONDITION+" / "+ShotExperimentSettings2026.RUN_LABEL);
-        telemetry.addData("After Play",unloaded()?"EMPTY robot; fresh Y starts batch; remaining trials advance automatically":"Refill to FOUR, then fresh Y to confirm/start each trial");
+        else telemetry.addData("Target RPM",displayedTargetRpm());
+        if(startPreloaded())telemetry.addData("PRELOAD REQUIRED","Four balls before Play; first trial starts automatically");
+        telemetry.addData("After Play",startPreloaded()?"First trial automatic; hand preload FOUR and fresh Y for later trials":
+                unloaded()?"EMPTY robot; fresh Y starts batch; remaining trials advance automatically":"Refill to FOUR, then fresh Y to confirm/start each trial");
         if(unloaded())telemetry.addData("Automatic interval","%.2f s between trials",ShotExperimentSettings2026.MODEL_BETWEEN_TRIAL_SECONDS);
         telemetry.addData("Controls",unloaded()?"A disabled; B reverse; X pause/stop; dpad right skips while waiting":
                 "A collect; GP2 hold A intake-only override; B reverse; X pause/stop; dpad right skip while waiting");
@@ -70,6 +77,11 @@ public abstract class ShooterExperimentOpMode2026 extends NextFTCOpMode {
             logging.start(getClass().getSimpleName(),"TUNING",shots,false);
             finished=false;lastResultEvent=0;manifestLogged=false;
             controller=new ShotExperimentController2026(plan,new Ports(),System.nanoTime(),gamepad1.y||gamepad2.y);
+            if(startPreloaded()) {
+                long now=System.nanoTime();
+                controller.tick(now,false,false,false,false);
+                controller.tick(now,true,false,false,false);
+            }
         } catch(RuntimeException|Error e) { shutdown();throw e; }
     }
     @Override public void onUpdate() {
@@ -122,9 +134,12 @@ public abstract class ShooterExperimentOpMode2026 extends NextFTCOpMode {
         telemetry.addData("Test phase",controller.getPhase());
         telemetry.addData("Trial / total / attempt","%d / %d / %d",upcoming.id,plan.trials.size(),controller.getAttemptId());
         telemetry.addData("Selected profile / condition",upcoming.profile.id+" / "+upcoming.condition);
+        telemetry.addData("Repeat within setting",upcoming.repetition);
         telemetry.addData("Completed / skipped","%d / %d",controller.getCompletedCount(),controller.getSkippedCount());
         telemetry.addData("Initial / final target RPM","%.0f / %.0f",upcoming.initialTargetRpm,upcoming.targetRpm);
         telemetry.addData("Actual / target RPM","%.0f / %.0f",shooter.getMeasuredFlywheelRpm(),shooter.getTargetFlywheelRpm());
+        if(upcoming.readyToleranceRpm>0)telemetry.addData("Ready / max wait","within %.0f RPM for %.2f s / %.2f s",
+                upcoming.readyToleranceRpm,upcoming.readyStableSeconds,upcoming.feedDelaySeconds);
         telemetry.addData("Feed powers intake / transfer","%.3f / %.3f",IntakeWithSensorsSubsystem2026.SHOOT_INTAKE_POWER,IntakeWithSensorsSubsystem2026.SHOOT_TRANSFER_POWER);
         telemetry.addData("Tracked count / raw beams","%d / %d",intake.getBallCount(),intake.getCachedBeamMask());
         telemetry.addData("Battery raw / filtered","%.2f / %.2f V",shooter.getBatteryVoltageRaw(),shooter.getBatteryVoltageFiltered());

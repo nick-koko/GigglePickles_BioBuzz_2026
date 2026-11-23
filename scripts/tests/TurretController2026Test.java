@@ -211,6 +211,21 @@ public final class TurretController2026Test {
         check("wrong center phase faults instead of guessing", t.getState() == State.FAULT);
         check("fault blocks feeding", !t.canShoot(3));
         check("fault cannot publish a handoff", t.snapshot() == null);
+        int writesAtFault = h.writes;
+        h.angle = 10;
+        t.update(3);
+        close("phase stays live in fault", 18, t.getRawDegrees());
+        check("reading phase in fault preserves latch and outputs",
+                t.getState() == State.FAULT && h.writes == writesAtFault);
+
+        Config reversed = new Config();
+        reversed.centerAngle = 5;
+        reversed.absoluteOffset = -20;
+        reversed.absoluteSign = -1;
+        TurretController2026 reversedTurret = new TurretController2026(
+                Mode.TRACKING, reversed, new FakeHardware(reversed), 0);
+        close("expected init phase includes center, offset, sign, gearing and wrap",
+                315, reversedTurret.getExpectedCenterPhase());
 
         h = new FakeHardware(c);
         h.badVoltage = true;

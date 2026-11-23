@@ -192,6 +192,45 @@ SDK RPM and encoder-delta RPM. A coast-down trace uses FLOAT in this subsystem.
 Reserve another trace for validation. A fitted model should predict that trace's
 rise time and steady speed before using it to compare hypothetical controls.
 
+#### November 22 calibration choices
+
+For opening-volley spinup, select **November 22 startup and coast**. The fit
+uses a constant drag torque plus a term proportional to speed. One unloaded
+recording supplies coast drag and two additional Quick Screen recordings supply
+powered starts. Separate recordings supply the checks below.
+
+| Held-out check | November 19 fit | November 22 startup fit |
+| --- | ---: | ---: |
+| Startup replay, median trial RMS error across 21 starts | 49.5 RPM | 41.8 RPM |
+| First 600 ms of feed, median trial RMS error across 34 volleys | 67.2 RPM | 74.7 RPM |
+| Median absolute error in readiness time, 11 candidate cold starts at 3196 RPM | 15 ms | 16 ms |
+
+The first two checks replay measured bus voltage and motor commands. The
+readiness check computes motor commands in closed loop using the recorded
+voltage and the typical loop period of each trial. Readiness is the end of the
+first continuous 150 ms within 75 RPM of the final target on sampled encoder
+feedback. The estimate is separate from the scheduled feed time. Both fits
+predicted readiness to within about one loop on a typical trial at this RPM.
+The November 22 coast prediction still ran 1.2 to 1.9 s longer than observed
+across the three held-out coasts to 500 RPM.
+
+For boost and feed comparisons, select **November 19 loaded volleys**. Fitting
+a single shift, stretch and strength adjustment to the four load pulses raised
+held-out volley error to 76.1 RPM. The published load stays at the league fit.
+Use the fourth-pulse offset to see whether a boost choice is sensitive to a
+shorter third-to-fourth gap. The offset represents assumed loading at the wheel.
+Video at the hive includes differences in flight time and possible collisions.
+
+For the next opener, use the expected scoring RPM at the actual pose. The
+3100 RPM example below is a trial setting. Log bus voltage during acceleration
+and record feed to fourth exit and the four-ball spread at the hive. Those
+observations check both the timing prediction and the scoring result.
+
+```sh
+python scripts/flywheel_dynamics_2026.py --calibration startup --tested-startup --target 3100 --voltage 12.5
+python scripts/refine_flywheel_plant_2026.py path/to/ShotTuning/LogData
+```
+
 For a very brief contact, the wheel's observed energy change is
 `0.5*J*(omega_before^2 - omega_after^2)`. Motor work during contact, friction,
 ball spin and ball deformation mean this is **not** equal to just `0.5*m*v^2`.
@@ -315,9 +354,10 @@ a long laboratory spin-up would hide the problem you are investigating.
 
 ### Phase 1: opening-volley battery x boost screen
 
-Use one fixed shooting pose, one target RPM, unchanged feed settings and a
-repeatable preload depth. Compare controller settings at the common 3196 RPM tracking
-reference. The old 2950 RPM command exploited startup overshoot and slow decay.
+Use the actual opening pose, the expected scoring RPM for that pose, unchanged
+feed settings and a repeatable preload depth. Hold that RPM constant when
+comparing startup controllers. Reserve the November 22 reference of 3196 RPM
+for model comparisons. The old 2950 RPM command exploited startup overshoot and slow decay.
 Use the recorded wheel RPM from those meet openers as the historical baseline.
 Once the new controller regulates consistently, bracket the scoring RPM at the fixed shooting pose.
 

@@ -22,7 +22,7 @@ public final class ShotExperimentController2026 {
     private final Ports ports;
     private int index,attempt,completed,skipped;
     private Phase phase=Phase.WAITING_FOR_LOAD;
-    private long trialStart,phaseStart,conditionStart,stoppedSince;
+    private long trialStart,phaseStart,conditionStart,stoppedSince,readySince;
     private boolean previousReady;
     private double initialMeasuredRpm=Double.NaN;
     private String reason="";
@@ -72,8 +72,16 @@ public final class ShotExperimentController2026 {
                 ports.spin(trial.condition==ShotExperimentPlan2026.Condition.COLD?trial.targetRpm:
                         trial.initialTargetRpm+fraction*(trial.targetRpm-trial.initialTargetRpm));
                 if(phase==Phase.TARGET_RAMP && fraction>=1)setPhase(Phase.WAITING_TO_FEED,now);
-                // Deliberately fixed timing: no hidden RPM gate to make a candidate look better.
-                if(elapsed>=trial.feedDelaySeconds) {
+                boolean readyToFeed=elapsed>=trial.feedDelaySeconds;
+                if(trial.readyToleranceRpm>0) {
+                    double measured=ports.measuredRpm();
+                    if(fraction<1 || !Double.isFinite(measured) || Math.abs(measured-trial.targetRpm)>trial.readyToleranceRpm)
+                        readySince=0;
+                    else if(readySince==0)readySince=now;
+                    readyToFeed=readySince!=0 && seconds(now,readySince)>=trial.readyStableSeconds;
+                    if(!readyToFeed && elapsed>=trial.feedDelaySeconds) { pause(now,"RPM_READY_TIMEOUT");break; }
+                }
+                if(readyToFeed) {
                     ports.spin(trial.targetRpm);
                     if(trial.feedEnabled) {
                         ports.feedCue();ports.startFeed();setPhase(Phase.FEEDING,now);
@@ -120,7 +128,7 @@ public final class ShotExperimentController2026 {
         }
     }
     private void beginCondition(long now) {
-        conditionStart=now;initialMeasuredRpm=ports.measuredRpm();
+        conditionStart=now;readySince=0;initialMeasuredRpm=ports.measuredRpm();
         ports.spin(trial().rampSeconds>0?trial().initialTargetRpm:trial().targetRpm);
         setPhase(trial().rampSeconds>0?Phase.TARGET_RAMP:Phase.WAITING_TO_FEED,now);
     }

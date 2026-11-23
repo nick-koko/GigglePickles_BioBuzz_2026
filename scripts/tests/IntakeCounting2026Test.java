@@ -45,6 +45,7 @@ public final class IntakeCounting2026Test {
         matchFourReplay(false);
         matchFourReplay(true);
         independentConfirmationAndHoles();
+        firstBallOverlapCannotRecoverExtraBalls();
         noInventedRepeatedCounts();
         releaseAndStopPriority();
         feedReverseAndDiagnostics();
@@ -99,6 +100,28 @@ public final class IntakeCounting2026Test {
         check("holes cannot remove latched occupancy",intake.getBallCount()==4);
     }
 
+    private static void firstBallOverlapCannotRecoverExtraBalls() throws Exception {
+        // Reload before clip volley 2: middle-high precedes shooter, and the
+        // existing 100 ms recovery used to count two at this point.
+        reset(0,0);intake.intakeForward();
+        sample(11.964,2);sample(12.193,3);sample(12.285,3);sample(12.310,3);
+        check("first ball overlapping upper beams remains one",intake.getBallCount()==1);
+        check("overlap does not stop transfer",commands[1]>0);
+        sample(12.330,1);sample(12.446,1);
+        check("first ball reaching its position retains one",intake.getBallCount()==1);
+        sample(13,3);
+        check("new middle-high blockage can count second ball",intake.getBallCount()==2 && commands[1]==0);
+
+        // Reloads before clip volleys 4/5: lower ball and upper ball can cover
+        // the top three beams while the first is still advancing.
+        reset(0,0);intake.intakeForward();
+        sample(47.812,2);sample(48.037,6);sample(48.069,7);sample(48.171,7);
+        check("overlapping arrival cannot recover from one to three",intake.getBallCount()==1 && commands[1]>0);
+        sample(48.3,1);sample(48.5,1);sample(49,7);sample(49.11,7);
+        check("recovery resumes for newly arriving stack",intake.getBallCount()==3);
+        sample(49.2,15);sample(49.31,15);
+        check("fourth ball still stops intake after valid upper arrivals",intake.getBallCount()==4 && commands[0]==0);
+    }
     private static void noInventedRepeatedCounts() throws Exception {
         reset(0,0);intake.intakeForward();sample(0,0);sample(.01,8);sample(.5,8);
         check("isolated lower beam cannot invent top-down balls",intake.getBallCount()==0);

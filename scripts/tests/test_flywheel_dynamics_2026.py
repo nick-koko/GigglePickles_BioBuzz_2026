@@ -36,6 +36,16 @@ class FlywheelDynamicsTest(unittest.TestCase):
         self.assertAlmostEqual(r['rows'][-1]['physical_rpm'],expected,delta=1.0)
         self.assertGreater(r['summary']['load_work_j'],0)
 
+    def test_startup_fit_and_measured_readiness(self):
+        plant,load,_=load_model(SCRIPTS/'flywheel_dynamics_2026.json','startup')
+        self.assertGreater(plant.drag(350), plant.drag(150))
+        ctrl=Controller(target_rpm=3100,startup_profile=True,startup_up_per_s=6, startup_down_per_s=6,
+                        ff_gain_min=.9,ff_gain_max=1.1)
+        ready=simulate(plant,ctrl,load)['summary']['measured_ready_75rpm_150ms_s']
+        self.assertTrue(.15 <= ready < ctrl.feed_s)
+        early=simulate(plant,replace(ctrl,feed_s=.1),load)
+        self.assertIsNone(early['summary']['measured_ready_75rpm_150ms_s'])
+
     def test_voltage_scaled_boost_preserves_voltage_until_supply_limit(self):
         c=Controller(kp=0,ks=0,kv=0,boost_delay_s=0,boost_command_lag_periods=0,
                      boost_duration_s=1,boost_voltage_scaled=True)
@@ -143,6 +153,7 @@ process.stdout.write(JSON.stringify(m.simulate(data.plant,JSON.parse(process.arg
                     self.assertAlmostEqual(a[key],b[key],delta=1e-7)
                 self.assertEqual(a['startup_active'],b['startup_active'])
             self.assertEqual(py['summary']['startup_handoff_s'],js['summary']['startup_handoff_s'])
+            self.assertEqual(py['summary']['measured_ready_75rpm_150ms_s'],js['summary']['measured_ready_75rpm_150ms_s'])
 
 if __name__=='__main__':
     unittest.main()

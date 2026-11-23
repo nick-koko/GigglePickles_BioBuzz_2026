@@ -113,7 +113,7 @@ def replay(plant, segment, load=None, h=.003):
                     zip(load['centers_s'],load['widths_s'],load['amplitudes_nm']))
                 torque*=omega/(load.get('reference_rpm',3196)*RAD_PER_RPM)
             drive=gain*max(0,u[i-1]*v[i-1]-plant.ke_v_s_rad*omega)
-            omega=max(0,omega+step*(drive-plant.drag_nm-torque)/plant.inertia_kg_m2)
+            omega=max(0,omega+step*(drive-plant.drag(omega)-torque)/plant.inertia_kg_m2)
             measured+=relax*(omega-measured)
             fine_times.append(t[i-1]+(j+1)*step)
             fine_measured.append(measured)

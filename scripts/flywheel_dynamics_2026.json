@@ -968,5 +968,121 @@
     "Torque load scales linearly with wheel speed near the calibration range.",
     "Bus voltage is prescribed; changed controller current does not recalculate battery sag.",
     "No ball launch velocity, trajectory, or scoring model is calibrated."
-  ]
+  ],
+  "startup_plant": {
+    "inertia_kg_m2": 0.00020045512009480107,
+    "ke_v_s_rad": 0.018108569940224375,
+    "kt_nm_a": 0.015669321195652175,
+    "resistance_ohm": 1.3043478260869565,
+    "drag_nm": 0.0024620185252111427,
+    "sensor_tau_s": 0.012,
+    "sensor_delay_s": 0.03769090730773498,
+    "calibrated_weight_count": 4,
+    "weight_inertia_kg_m2": 3.9241154763916884e-05,
+    "viscous_drag_nm_s_rad": 8.577504453494962e-06
+  },
+  "plant_refinement": {
+    "date": "2026-11-22",
+    "coast_train_run": "094217",
+    "powered_train_runs": [
+      "094217",
+      "104123",
+      "105931"
+    ],
+    "held_out_replay": {
+      "league": {
+        "startup": {
+          "trials": 21,
+          "median_trial_rmse_rpm": 49.5
+        },
+        "volley": {
+          "trials": 34,
+          "median_trial_rmse_rpm": 67.2
+        },
+        "candidate_timing_trials": 11,
+        "paired_candidate_ready_times": 11,
+        "median_abs_ready_error_s": 0.015,
+        "median_predicted_minus_measured_ready_s": -0.015,
+        "coast_initial_rpm_observed_predicted_s": [
+          [
+            2828.57,
+            11.46,
+            8.26
+          ],
+          [
+            3171.43,
+            12.69,
+            9.47
+          ],
+          [
+            3600.0,
+            13.83,
+            10.99
+          ]
+        ]
+      },
+      "startup": {
+        "startup": {
+          "trials": 21,
+          "median_trial_rmse_rpm": 41.8
+        },
+        "volley": {
+          "trials": 34,
+          "median_trial_rmse_rpm": 74.7
+        },
+        "candidate_timing_trials": 11,
+        "paired_candidate_ready_times": 11,
+        "median_abs_ready_error_s": 0.016,
+        "median_predicted_minus_measured_ready_s": -0.002,
+        "coast_initial_rpm_observed_predicted_s": [
+          [
+            2828.57,
+            11.46,
+            12.65
+          ],
+          [
+            3171.43,
+            12.69,
+            14.05
+          ],
+          [
+            3600.0,
+            13.83,
+            15.68
+          ]
+        ]
+      },
+      "experimental_load": {
+        "startup": {
+          "trials": 21,
+          "median_trial_rmse_rpm": 41.8
+        },
+        "volley": {
+          "trials": 34,
+          "median_trial_rmse_rpm": 76.1
+        },
+        "candidate_timing_trials": 11,
+        "paired_candidate_ready_times": 11,
+        "median_abs_ready_error_s": 0.016,
+        "median_predicted_minus_measured_ready_s": -0.002,
+        "coast_initial_rpm_observed_predicted_s": [
+          [
+            2828.57,
+            11.46,
+            12.65
+          ],
+          [
+            3171.43,
+            12.69,
+            14.05
+          ],
+          [
+            3600.0,
+            13.83,
+            15.68
+          ]
+        ]
+      }
+    }
+  }
 }
