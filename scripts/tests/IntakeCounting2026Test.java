@@ -38,14 +38,16 @@ public final class IntakeCounting2026Test {
             if (name.equals("getPosition")) return gate;
             throw new AssertionError("Unexpected gate call "+name);
         }));
-        check("all motor speed settings retained",IntakeWithSensorsSubsystem2026.INTAKE_FORWARD_RPM==4000
-                && IntakeWithSensorsSubsystem2026.TRANSFER_FORWARD_RPM==700
+        check("configured collection speeds",IntakeWithSensorsSubsystem2026.INTAKE_FORWARD_RPM==4000
+                && IntakeWithSensorsSubsystem2026.TRANSFER_FORWARD_RPM==1500
                 && IntakeWithSensorsSubsystem2026.INTAKE_REVERSE_RPM==3000
                 && IntakeWithSensorsSubsystem2026.TRANSFER_REVERSE_RPM==700);
         matchFourReplay(false);
         matchFourReplay(true);
         independentConfirmationAndHoles();
         firstBallOverlapCannotRecoverExtraBalls();
+        firstBallMiddleHighBlip();
+        middleHighRearmRequiresContinuousClear();
         noInventedRepeatedCounts();
         releaseAndStopPriority();
         feedReverseAndDiagnostics();
@@ -135,6 +137,47 @@ public final class IntakeCounting2026Test {
         check("logging diagnostics add no beam reads",reads==before);
     }
 
+    private static void firstBallMiddleHighBlip() throws Exception {
+        for (boolean guard : new boolean[]{false,true}) {
+            reset(0,0);intake.intakeForward();
+            IntakeWithSensorsSubsystem2026.MIDDLE_HIGH_CLEAR_CONFIRM_SECONDS=guard?.05:0;
+            // IMG_1914 volley 1: the first ball briefly uncovers middle-high
+            // after blocking the shooter. The old edge path counted it twice.
+            sample(1.989621,8);sample(2.071866,4);sample(2.157591,0);
+            sample(2.184686,2);sample(2.300026,3);sample(2.317816,1);
+            sample(2.339552,3);
+            check("recorded 22 ms gap reproduces or prevents false second ball",
+                    intake.getBallCount()==(guard?1:2));
+            check("transfer continues with guarded first ball",(commands[1]>0)==guard);
+            sample(2.358930,1);sample(4.191633,9);
+            sample(4.251135,5);sample(5.002242,13);sample(5.099621,13);
+            check("recorded lower arrivals cannot advance a phantom stack",
+                    intake.getBallCount()==(guard?1:4));
+            check("intake stays enabled after rejecting phantom stack",(commands[0]>0)==guard);
+        }
+    }
+
+    private static void middleHighRearmRequiresContinuousClear() throws Exception {
+        reset(0,0);intake.intakeForward();
+        sample(0,2);sample(.1,3);sample(.12,1);sample(.142,3);
+        sample(.26,3);
+        check("sustained recovery cannot bypass rejected middle-high edge",
+                intake.getBallCount()==1 && commands[1]>0);
+        sample(.3,1);sample(.33,1);sample(.34,3);sample(.5,3);
+        check("separate short gaps cannot accumulate rearm time",intake.getBallCount()==1);
+        sample(.6,1);sample(.66,1);sample(.7,3);
+        check("confirmed clear permits second ball",intake.getBallCount()==2 && commands[1]==0);
+        sample(.8,7);sample(.9,15);
+        check("later normal edges still reach four",intake.getBallCount()==4 && commands[0]==0);
+
+        reset(0,0);intake.intakeForward();
+        sample(0,2);sample(.1,3);
+        intake.setFeedingToShooter(true);sample(.2,3);sample(.8,0);
+        intake.setFeedingToShooter(false);sample(.9,0);
+        sample(1,2);sample(1.1,3);sample(1.12,1);sample(1.142,3);sample(1.3,3);
+        check("next reload applies a fresh first-ball rearm",intake.getBallCount()==1);
+    }
+
     private static void releaseAndStopPriority() throws Exception {
         reset(0,4);
         intake.updateTeleopCollectionInputs(true,true,false,false,false);sample(0,0);
@@ -197,6 +240,11 @@ public final class IntakeCounting2026Test {
         try { IntakeWithSensorsSubsystem2026.validateConfiguration(); } catch (IllegalArgumentException e) { failed=true; }
         check("invalid confirmation setting fails clearly at validation",failed);
         IntakeWithSensorsSubsystem2026.SUSTAINED_BEAM_CONFIRM_SECONDS=.1;
+        IntakeWithSensorsSubsystem2026.MIDDLE_HIGH_CLEAR_CONFIRM_SECONDS=Double.NaN;
+        failed=false;
+        try { IntakeWithSensorsSubsystem2026.validateConfiguration(); } catch (IllegalArgumentException e) { failed=true; }
+        check("invalid middle-high rearm fails at Init validation",failed);
+        IntakeWithSensorsSubsystem2026.MIDDLE_HIGH_CLEAR_CONFIRM_SECONDS=.05;
     }
 
     private static void longerConfirmationIsRespected() throws Exception {

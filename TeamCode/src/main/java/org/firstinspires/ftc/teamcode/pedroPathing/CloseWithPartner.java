@@ -12,6 +12,8 @@ import com.qualcomm.robotcore.eventloop.opmode.Autonomous;
 import org.firstinspires.ftc.teamcode.GlobalRobotData;
 import org.firstinspires.ftc.teamcode.logging.RobotLogging2026;
 import org.firstinspires.ftc.teamcode.subsystems.AutonomousShooterRpm2026;
+import org.firstinspires.ftc.teamcode.subsystems.AutonomousShotCoordinator2026;
+import org.firstinspires.ftc.teamcode.subsystems.AutonomousShooterStartup2026;
 import org.firstinspires.ftc.teamcode.subsystems.FlowerIntakeSubsystem2026;
 import org.firstinspires.ftc.teamcode.subsystems.IntakeWithSensorsSubsystem2026;
 import org.firstinspires.ftc.teamcode.subsystems.LEDControlSubsystem2026;
@@ -59,7 +61,8 @@ public class CloseWithPartner extends NextFTCOpMode {
 
     public static double SHOOTER_FLYWHEEL_RPM_High = AutonomousShooterRpm2026.DEFAULT_HIGH_RPM;
     public static double SHOOTER_FLYWHEEL_RPM_Low = AutonomousShooterRpm2026.DEFAULT_LOW_RPM;
-    public static double SHOOTER_SPINUP_SECONDS = 2.0;
+    // Optional minimum wait from shooter start, alongside RPM readiness.
+    public static double SHOOTER_SPINUP_SECONDS = 0.0;
     public static double FLOWERY_WAIT_SECONDS = 1.0;
     // Maximum time for either full garden approach; the collection wait still follows.
     public static double GARDEN_APPROACH_TIMEOUT_SECONDS = 2.0;
@@ -235,7 +238,10 @@ public class CloseWithPartner extends NextFTCOpMode {
     private final ShotSequenceController2026 shotSequence =
             new ShotSequenceController2026();
     private final AutonomousShooterRpm2026 shooterRpm = new AutonomousShooterRpm2026();
+    private final AutonomousShooterStartup2026 startupReady = new AutonomousShooterStartup2026();
     private final RobotLogging2026 logging = new RobotLogging2026();
+    private final AutonomousShotCoordinator2026 autonomousShots =
+            new AutonomousShotCoordinator2026(shotSequence, shooterRpm, logging);
 
     public CloseWithPartner() {
         addComponents(
@@ -253,6 +259,9 @@ public class CloseWithPartner extends NextFTCOpMode {
 
     @Override
     public void onInit() {
+        AutonomousShooterStartup2026.validateConfiguration(SHOOTER_SPINUP_SECONDS);
+        startupReady.reset();
+        logging.registerConfigurationClass(AutonomousShooterStartup2026.class);
         shooterRpm.reset(SHOOTER_FLYWHEEL_RPM_Low, USE_FIRST_SHOT_LOW_RPM_OVERRIDE);
         TurretSubsystem2026.INSTANCE.prepareAutonomous();
         autonStarted = false;
@@ -473,6 +482,18 @@ public class CloseWithPartner extends NextFTCOpMode {
         return Paths.line(startPose, endPose);
     }
 
+    private Command waitForOpeningShooter() {
+        return new SequentialGroup(
+                new WaitUntil(startupReady::isFinished),
+                new InstantCommand(() -> {
+                    startupReady.complete();
+                    logging.event("SHOOTER_STARTUP_GATE",
+                            startupReady.getResult() + " elapsed_s="
+                                    + startupReady.getElapsedSeconds(System.nanoTime()));
+                })
+        );
+    }
+
     private Command autonomousSequence() {
         return new SequentialGroup(
                 shootPreloads(),
@@ -484,12 +505,11 @@ public class CloseWithPartner extends NextFTCOpMode {
         return new SequentialGroup(
                 enterStage(AutonStage.PARK),
                 new InstantCommand(() ->
-                        ShooterSubsystem2026.INSTANCE.stop()),
-                new InstantCommand(() ->
-                        IntakeWithSensorsSubsystem2026.INSTANCE.stopIntake()),
-                new InstantCommand(() ->
                         FlowerIntakeSubsystem2026.INSTANCE.moveUp()),
                 new FollowPath(parkPath),
+                new WaitUntil(() -> !shotSequence.isActive()),
+                new InstantCommand(() -> ShooterSubsystem2026.INSTANCE.stop()),
+                new InstantCommand(() -> IntakeWithSensorsSubsystem2026.INSTANCE.stopIntake()),
                 enterStage(AutonStage.DONE)
         );
     }
@@ -497,27 +517,23 @@ public class CloseWithPartner extends NextFTCOpMode {
     private Command shootPreloads() {
         return new SequentialGroup(
                 enterStage(AutonStage.SPIN_UP),
-                new InstantCommand(() ->
-                        shooterRpm.start(
-                                SHOOTER_FLYWHEEL_RPM_Low,
-                                USE_DISTANCE_BASED_RPM,
-                                PedroComponent.follower().getPose(),
-                                USE_FIRST_SHOT_LOW_RPM_OVERRIDE
-                        )
-                ),
-                new ParallelGroup(
-                        new Delay(SHOOTER_SPINUP_SECONDS),
-                        new FollowPath(closeshootPath).endAfter(1.0)
-                ),
+                new InstantCommand(() -> {
+                    startupReady.start(System.nanoTime(), SHOOTER_SPINUP_SECONDS);
+                    shooterRpm.start(
+                            SHOOTER_FLYWHEEL_RPM_Low,
+                            USE_DISTANCE_BASED_RPM,
+                            PedroComponent.follower().getPose(),
+                            USE_FIRST_SHOT_LOW_RPM_OVERRIDE
+                    );
+                }),
+                new FollowPath(closeshootPath).endAfter(1.0),
+                waitForOpeningShooter(),
                 enterStage(AutonStage.SHOOT_PRELOADS),
-                shoot(),
-                new InstantCommand(shooterRpm::finishFirstVolley),
-                new InstantCommand(() -> firstVolleyDoneNanos = System.nanoTime()),
-                new InstantCommand(() ->
-                        startShooter(
-                                SHOOTER_FLYWHEEL_RPM_High
-                        )
-                )
+                shoot(0.8, () -> {
+                    shooterRpm.finishFirstVolley();
+                    firstVolleyDoneNanos = System.nanoTime();
+                    startShooter(SHOOTER_FLYWHEEL_RPM_High);
+                })
         );
     }
 
@@ -543,14 +559,14 @@ public class CloseWithPartner extends NextFTCOpMode {
                         )
                 ),
                 enterStage(AutonStage.SHOOT),
-                shoot(),
+                shoot(0.8),
 
                 collectFromGarden(gardenintakeFromFarPath),
                 enterStage(AutonStage.DRIVE_TO_SHOOT),
                 new FollowPath(closeshoot2Path),
                 new Delay(4.75),
                 enterStage(AutonStage.SHOOT),
-                shoot(),
+                shoot(0.8),
                 parkFrom(parkingPath)
         );
     }
@@ -565,7 +581,7 @@ public class CloseWithPartner extends NextFTCOpMode {
                 new WaitUntil(() ->
                         secondsSinceFirstVolley() >= partnerDelaySeconds),
                 enterStage(AutonStage.SHOOT),
-                shoot(),
+                shoot(0.8),
 
                 enterStage(AutonStage.DRIVE_TO_FLOWER),
                 new ParallelGroup(
@@ -591,7 +607,7 @@ public class CloseWithPartner extends NextFTCOpMode {
                                 ),
                                 new Delay(0.75),
                                 enterStage(AutonStage.SHOOT),
-                                shoot(),
+                                shoot(0.8),
                                 parkFrom(parkingPath)
                         ),
                         parkFrom(parkingFromFlowerNearPath)
@@ -635,11 +651,13 @@ public class CloseWithPartner extends NextFTCOpMode {
         );
     }
 
-    private Command shoot() {
-        return new SequentialGroup(
-                new InstantCommand(shotSequence::start),
-                new WaitUntil(() -> !shotSequence.isActive())
-        );
+    // Each sequence call supplies seconds from feed start before the next path can begin.
+    private Command shoot(double departureDelayFromFeedStartSeconds) {
+        return autonomousShots.shoot(departureDelayFromFeedStartSeconds);
+    }
+
+    private Command shoot(double departureDelayFromFeedStartSeconds, Runnable afterFeed) {
+        return autonomousShots.shoot(departureDelayFromFeedStartSeconds, afterFeed);
     }
 
     private double secondsSinceFirstVolley() {
@@ -724,7 +742,7 @@ public class CloseWithPartner extends NextFTCOpMode {
         shooterRpm.addTelemetry(telemetry, USE_DISTANCE_BASED_RPM, pose);
         addPlanTelemetry();
         addStageTelemetry();
-        telemetry.addData("Spin-up delay", "%.2f sec", SHOOTER_SPINUP_SECONDS);
+        telemetry.addData("Minimum spin-up wait", "%.2f sec", SHOOTER_SPINUP_SECONDS);
         telemetry.addData(
                 "Flower intake",
                 FlowerIntakeSubsystem2026.INSTANCE.getPosition()
@@ -756,7 +774,12 @@ public class CloseWithPartner extends NextFTCOpMode {
         // The shared controller owns feed timing and the timed shooter boost.
         Pose pose = PedroComponent.follower().getPose();
         shooterRpm.update(USE_DISTANCE_BASED_RPM, pose);
+        ShooterSubsystem2026 shooter = ShooterSubsystem2026.INSTANCE;
+        startupReady.update(System.nanoTime(), shooter.getControlSampleNanos(),
+                shooter.getMeasuredFlywheelRpm(), shooter.getTargetFlywheelRpm(), shooter.isEnabled());
         shotSequence.update();
+        autonomousShots.update();
+        telemetry.addData("Opening shooter readiness", startupReady.getResult());
         logging.update(pose, PedroComponent.follower(), autonStage.name(),
                 (helpShootFar ? "HELP_FAR" : "TRUST_PARTNER") + ";partner_delay_s=" + partnerDelaySeconds,
                 shooterRpm.getMode(USE_DISTANCE_BASED_RPM, pose));
@@ -794,7 +817,7 @@ public class CloseWithPartner extends NextFTCOpMode {
         logging.stop();
         int finalBallCount =
                 IntakeWithSensorsSubsystem2026.INSTANCE.getBallCount();
-        shotSequence.cancel();
+        autonomousShots.cancel();
         ShooterSubsystem2026.INSTANCE.stop();
         IntakeWithSensorsSubsystem2026.INSTANCE.stopIntake();
         LEDControlSubsystem2026.INSTANCE.clearStagePulse();

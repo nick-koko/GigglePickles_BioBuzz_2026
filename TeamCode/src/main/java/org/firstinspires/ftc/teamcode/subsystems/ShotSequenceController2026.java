@@ -14,20 +14,19 @@ import org.firstinspires.ftc.teamcode.util.ShooterPowerProfile2026;
 public final class ShotSequenceController2026 {
 
     public static double TRIGGER_THRESHOLD = 0.10;
-    public static double FEED_SECONDS = 1.2;
+    public static double FEED_SECONDS = 1.0;
     public static boolean ENABLE_TIMED_BOOST = true;
-    public static double BOOST_DELAY_SECONDS = 0.18;
+    public static double BOOST_DELAY_SECONDS = 0.04;
     public static double BOOST_DURATION_SECONDS = 0.50;
     public static double BOOST_MINIMUM_POWER = 0.75;
     public static boolean BOOST_BYPASSES_SLEW = true;
-    // Opt-in extensions. With these defaults BOOST_MINIMUM_POWER is still the
-    // same flat duty-cycle floor, with the same existing delay and duration.
-    public static boolean ENABLE_RAMPED_BOOST = false;
-    public static double BOOST_START_POWER = 0.75;
-    public static double BOOST_END_POWER = 0.75;
-    public static boolean ENABLE_BOOST_VOLTAGE_SCALING = false;
+    // Nov 23 candidate: voltage-scaled ramp with an overspeed taper.
+    public static boolean ENABLE_RAMPED_BOOST = true;
+    public static double BOOST_START_POWER = 0.80;
+    public static double BOOST_END_POWER = 0.90;
+    public static boolean ENABLE_BOOST_VOLTAGE_SCALING = true;
     public static double BOOST_NOMINAL_V = 12.5;
-    public static double BOOST_OVERSPEED_TAPER_RPM = 0.0;
+    public static double BOOST_OVERSPEED_TAPER_RPM = 100.0;
 
     private boolean previousShootRequest;
     private boolean requireTriggerRelease;

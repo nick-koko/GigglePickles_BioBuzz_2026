@@ -36,13 +36,13 @@ public class ShooterSubsystem2026 implements Subsystem {
     public static double kA = 0.0;
 
     public static double SLEW_PER_SECOND = 1.5;
-    // Both switches default off: SLEW_PER_SECOND retains the meet behavior.
-    public static boolean ENABLE_ASYMMETRIC_SLEW = false;
+    // Nov 23 tested profile: fast cold starts, then 1.5/s for running adjustments.
+    public static boolean ENABLE_ASYMMETRIC_SLEW = true;
     public static double RUNNING_SLEW_UP_PER_SECOND = 1.5;
     public static double RUNNING_SLEW_DOWN_PER_SECOND = 1.5;
-    public static boolean ENABLE_STARTUP_PROFILE = false;
-    public static double STARTUP_SLEW_UP_PER_SECOND = 1.5;
-    public static double STARTUP_SLEW_DOWN_PER_SECOND = 1.5;
+    public static boolean ENABLE_STARTUP_PROFILE = true;
+    public static double STARTUP_SLEW_UP_PER_SECOND = 6.0;
+    public static double STARTUP_SLEW_DOWN_PER_SECOND = 6.0;
     public static double STARTUP_ENTRY_MAX_RPM = 200.0;
     public static double STARTUP_EXIT_TOLERANCE_RPM = 50.0;
     public static double STARTUP_EXIT_MAX_SLOPE_RPM_PER_SECOND = 200.0;
@@ -64,8 +64,8 @@ public class ShooterSubsystem2026 implements Subsystem {
     public static boolean ENABLE_VOLTAGE_COMPENSATION = true;
     public static double VOLTAGE_COMP_NOMINAL_V = 12.5;
     public static double VOLTAGE_COMP_FILTER_TAU_SEC = 0.5;
-    public static double VOLTAGE_COMP_MIN_GAIN = 1.0;
-    public static double VOLTAGE_COMP_MAX_GAIN = 1.05; // Conservative initial cap; tune after logging RPM
+    public static double VOLTAGE_COMP_MIN_GAIN = 0.90;
+    public static double VOLTAGE_COMP_MAX_GAIN = 1.10;
     public static double VOLTAGE_COMP_MIN_VALID_V = 7.0;
 
     private DcMotorEx shooterMotor;

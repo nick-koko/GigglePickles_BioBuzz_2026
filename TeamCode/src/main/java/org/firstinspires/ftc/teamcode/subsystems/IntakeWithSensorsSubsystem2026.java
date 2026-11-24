@@ -50,6 +50,8 @@ public class IntakeWithSensorsSubsystem2026 implements Subsystem {
     public static double STATIONARY_RESYNC_SECONDS = 0.25;
     public static boolean ENABLE_SUSTAINED_BEAM_RECOVERY = true;
     public static double SUSTAINED_BEAM_CONFIRM_SECONDS = 0.10;
+    // After the first ball arrives, reject brief holes in its middle-high blockage.
+    public static double MIDDLE_HIGH_CLEAR_CONFIRM_SECONDS = 0.05;
 
     public static double GATE_CLOSED_POSITION = 0.15; //0.15 => 0.42
     public static double GATE_OPEN_POSITION = 0.35; //0.35 => 0.15
@@ -83,6 +85,8 @@ public class IntakeWithSensorsSubsystem2026 implements Subsystem {
     private int previousBeamMask = -1;
     private long beamsStableSinceNanos;
     private final long[] blockedSinceNanos = new long[4];
+    private long middleHighClearSinceNanos;
+    private boolean middleHighEdgeArmed = true;
     private int confirmedBeamStackCount, ballCountRecoveryEvents;
     private int lastRecoveryFrom, lastRecoveryTo, lastRecoveryBeamMask;
     private ManualMotorTestMode manualMotorTestMode =
@@ -252,6 +256,7 @@ public class IntakeWithSensorsSubsystem2026 implements Subsystem {
     private void resetRuntimeState() {
         intakeCapacityOverrideHeld = false;
         clearBeamConfirmation();
+        middleHighEdgeArmed = true;
         ballCountRecoveryEvents = lastRecoveryFrom = lastRecoveryTo = lastRecoveryBeamMask = 0;
         intakeMode = IntakeMode.STOPPED;
         feedingToShooter = false;
@@ -421,8 +426,11 @@ public class IntakeWithSensorsSubsystem2026 implements Subsystem {
                     && shooterBroken
                     && !previousShooterBeamBroken) {
                 shooterPositionOccupied = true;
+                middleHighEdgeArmed = false;
+                middleHighClearSinceNanos = 0;
             } else if (shooterPositionOccupied
                     && !middleHighPositionOccupied
+                    && middleHighEdgeArmed
                     && middleHighBroken
                     && !previousMiddleHighBeamBroken) {
                 middleHighPositionOccupied = true;
@@ -439,6 +447,15 @@ public class IntakeWithSensorsSubsystem2026 implements Subsystem {
                     && intakeEntryBroken
                     && !previousIntakeEntryBeamBroken) {
                 intakeEntryPositionOccupied = true;
+            }
+
+            if (middleHighBroken || !shooterPositionOccupied) {
+                middleHighClearSinceNanos = 0;
+            } else {
+                if (middleHighClearSinceNanos == 0) middleHighClearSinceNanos = nowNanos;
+                if ((nowNanos-middleHighClearSinceNanos)/1e9 >= MIDDLE_HIGH_CLEAR_CONFIRM_SECONDS) {
+                    middleHighEdgeArmed = true;
+                }
             }
 
             if (ENABLE_SUSTAINED_BEAM_RECOVERY) recoverBlockedStack(confirmedBeamStackCount);
@@ -478,6 +495,7 @@ public class IntakeWithSensorsSubsystem2026 implements Subsystem {
      */
     public void clearTrackedBalls() {
         clearBeamConfirmation();
+        middleHighEdgeArmed = true;
         shooterPositionOccupied = false;
         middleHighPositionOccupied = false;
         middleLowPositionOccupied = false;
@@ -494,6 +512,7 @@ public class IntakeWithSensorsSubsystem2026 implements Subsystem {
      */
     public void setBallCount(int count) {
         clearBeamConfirmation();
+        middleHighEdgeArmed = true;
         occupyTopPositions(count);
         simulatedUpperStorageFull = false;
         synchronizePreviousBeamStates();
@@ -538,6 +557,8 @@ public class IntakeWithSensorsSubsystem2026 implements Subsystem {
     private void recoverBlockedStack(int count) {
         int previous = getBallCount();
         if (count <= previous) return;
+        // Recovery must respect the same first-ball rearm as edge counting.
+        if (previous == 1 && !middleHighEdgeArmed) return;
         // A ball arriving from below blocks middle-high before the shooter.
         // That same overlap cannot establish a second ball, even if it lasts
         // past the confirmation timer. Wait for a new middle-high blockage
@@ -553,13 +574,15 @@ public class IntakeWithSensorsSubsystem2026 implements Subsystem {
     }
 
     private void clearBeamConfirmation() {
+        middleHighClearSinceNanos = 0;
         for (int bit = 0; bit < 4; bit++) blockedSinceNanos[bit] = 0;
         confirmedBeamStackCount = 0;
     }
 
     public static void validateConfiguration() {
         if (!Double.isFinite(STATIONARY_RESYNC_SECONDS) || STATIONARY_RESYNC_SECONDS < 0
-                || !Double.isFinite(SUSTAINED_BEAM_CONFIRM_SECONDS) || SUSTAINED_BEAM_CONFIRM_SECONDS < 0)
+                || !Double.isFinite(SUSTAINED_BEAM_CONFIRM_SECONDS) || SUSTAINED_BEAM_CONFIRM_SECONDS < 0
+                || !Double.isFinite(MIDDLE_HIGH_CLEAR_CONFIRM_SECONDS) || MIDDLE_HIGH_CLEAR_CONFIRM_SECONDS < 0)
             throw new IllegalArgumentException("Intake beam confirmation times must be finite and nonnegative");
     }
 

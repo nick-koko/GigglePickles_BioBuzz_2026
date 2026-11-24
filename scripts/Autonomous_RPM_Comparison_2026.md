@@ -1,4 +1,26 @@
-# Autonomous RPM comparison — November 6, 2026
+# Autonomous RPM comparison
+
+## Current defaults — November 24, 2026
+
+All three autonomous programs request 3100 RPM for preloads and 3150 RPM for
+later fixed-RPM shots. Their first-shot override defaults on. Readiness requires
+150 ms within 75 RPM using fresh controller samples. A two-second maximum from
+shooter start proceeds to feed on timeout. `SHOOTER_SPINUP_SECONDS` is an optional
+minimum wait and defaults to zero. Both close opening paths keep their one-second
+timeout; Far With Partner retains its path and partner delay. The shared fast
+startup and 40 ms ramped candidate boost apply to these programs.
+
+Each autonomous shot call explicitly supplies its departure delay in seconds,
+for example `shoot(0.8)`. Change that argument for the individual volley.
+Departure is measured from the shot sequence's feed-start command; the full
+feed duration remains controlled by `ShotSequenceController2026.FEED_SECONDS`
+(1.2 seconds). Delays greater than the feed duration are also supported.
+The selected RPM is held throughout feeding. First-volley completion and the
+close partner timer update when feeding ends, independently of departure.
+Park paths may begin early; motor shutdown waits for feed completion.
+Logs include `SHOT_DEPARTURE_DELAY` and `SHOT_DEPARTURE_RELEASE` for each volley.
+
+## Historical comparison — November 6, 2026
 
 The three qualifier opmodes share fixed-RPM defaults from `AutonomousShooterRpm2026`:
 

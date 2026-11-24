@@ -13,8 +13,8 @@ import org.firstinspires.ftc.teamcode.subsystems.TurretSubsystem2026;
 /** Standalone turret fixture. Its field position is fixed and only the Pinpoint yaw is used. */
 @TeleOp(name = "Turret Bench 2026", group = "Test")
 public final class TurretBenchTeleOp2026 extends OpMode {
-    private static final double[] STEPS_DEG = {0.5, 1, 2, 5, 10, 15};
-    private static final long REPEAT_NS = 200_000_000L;
+    private static final double[] SWEEP_SPEEDS_DEG_PER_SECOND = {15, 30, 60, 90, 120, 180, 270, 360};
+    private static final double STICK_DEADBAND = 0.1;
     private GoBildaPinpointDriver pinpoint;
     private List<LynxModule> hubs;
     private TurretSubsystem2026 turret;
@@ -22,9 +22,8 @@ public final class TurretBenchTeleOp2026 extends OpMode {
     private DeviceStatus status;
     private double fieldHeading;
     private boolean manual;
-    private int stepIndex = 3;
-    private int lastStickDirection;
-    private long nextStep;
+    private int speedIndex = 2;
+    private long lastLoopNanos;
 
     @Override public void init() {
         startPose = Pickles2026Teleop.configuredStartingPose();
@@ -60,21 +59,24 @@ public final class TurretBenchTeleOp2026 extends OpMode {
 
     @Override public void start() {
         manual = false;
+        lastLoopNanos = System.nanoTime();
         turret.startTeleop();
     }
 
     @Override public void loop() {
         readSensors();
+        long now = System.nanoTime();
+        double dt = Math.min(0.1, Math.max(0, (now - lastLoopNanos) / 1e9));
+        lastLoopNanos = now;
         Pickles2026Teleop.ShotSettings shot = Pickles2026Teleop.calculateShotSettings(startPose);
-        if (gamepad1.dpadUpWasPressed()) stepIndex = Math.min(stepIndex + 1, STEPS_DEG.length - 1);
-        if (gamepad1.dpadDownWasPressed()) stepIndex = Math.max(stepIndex - 1, 0);
+        if (gamepad1.dpadUpWasPressed()) speedIndex = Math.min(speedIndex + 1, SWEEP_SPEEDS_DEG_PER_SECOND.length - 1);
+        if (gamepad1.dpadDownWasPressed()) speedIndex = Math.max(speedIndex - 1, 0);
         if (gamepad1.aWasPressed()) {
             manual = !manual;
             if (manual && turret.canShoot()) turret.holdCommandedAngle();
-            lastStickDirection = 0;
         }
         if (manual) {
-            if (turret.canShoot()) adjustManualTarget();
+            if (turret.canShoot()) adjustManualTarget(dt);
         } else if (Double.isFinite(fieldHeading)) {
             turret.aimAt(shot.aimX, shot.aimY, startPose.getX(), startPose.getY(), fieldHeading);
         }
@@ -82,15 +84,11 @@ public final class TurretBenchTeleOp2026 extends OpMode {
         showTelemetry(shot);
     }
 
-    private void adjustManualTarget() {
+    private void adjustManualTarget(double dt) {
         double stick = gamepad1.right_stick_x;
-        int direction = Math.abs(stick) >= 0.5 ? (int) Math.signum(stick) : 0;
-        long now = System.nanoTime();
-        if (direction != 0 && (direction != lastStickDirection || now >= nextStep)) {
-            turret.stepTarget(direction * STEPS_DEG[stepIndex]);
-            nextStep = now + REPEAT_NS;
-        }
-        lastStickDirection = direction;
+        if (Math.abs(stick) <= STICK_DEADBAND) return;
+        double input = Math.copySign((Math.abs(stick) - STICK_DEADBAND) / (1 - STICK_DEADBAND), stick);
+        turret.stepTarget(input * SWEEP_SPEEDS_DEG_PER_SECOND[speedIndex] * dt);
     }
 
     private void showTelemetry(Pickles2026Teleop.ShotSettings shot) {
@@ -99,8 +97,8 @@ public final class TurretBenchTeleOp2026 extends OpMode {
         telemetry.addData("Fixed X / Y (in)", "%.2f / %.2f", startPose.getX(), startPose.getY());
         telemetry.addData("Field heading (deg)", Math.toDegrees(fieldHeading));
         telemetry.addData("Hive X / Y (in)", "%.2f / %.2f", shot.aimX, shot.aimY);
-        telemetry.addData("Manual step (deg)", STEPS_DEG[stepIndex]);
-        telemetry.addLine("GP1: A switches modes. Right stick left/right steps angle. D-pad up/down changes step.");
+        telemetry.addData("Manual sweep speed (deg/s)", SWEEP_SPEEDS_DEG_PER_SECOND[speedIndex]);
+        telemetry.addLine("GP1: A switches modes. Hold right stick left/right to sweep. D-pad up/down changes speed.");
         turret.addTelemetry(telemetry);
     }
 

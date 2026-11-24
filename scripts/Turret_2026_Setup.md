@@ -20,11 +20,10 @@ from above. The heading should approach ±180° and the turret target should mov
 inside travel, to about +84°. Telemetry shows heading, reachability, target,
 encoder readings and servo commands. A missing-pods status is expected on this fixture.
 
-Use **GP1 A** to toggle between tracking and manual. In manual, deflect the right
-stick right to increase the turret setpoint or left to decrease it. A tap steps once,
-holding repeats every 0.2 seconds, and releasing holds the target. D-pad up/down
-selects 0.5°, 1°, 2°, 5° (initial), 10° or 15° per step. A returns to tracking
-using the current base heading.
+Use **GP1 A** to toggle between tracking and manual. Hold the right stick
+left/right to sweep continuously. Stick deflection scales the speed; releasing
+holds the target. D-pad up/down selects 15, 30, 60 (initial), 90, 120, 180, 270
+or 360 degrees per second. A returns to tracking using the current base heading.
 
 ### Competition modes
 

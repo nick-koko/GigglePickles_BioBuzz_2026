@@ -33,30 +33,37 @@ public final class ShooterConfiguration2026Test {
         shapedBoost();
         sequenceSnapshotAndFlatDefault();
         invalidConfiguration();
-        System.out.println("Passed " + checks + " shooter configuration checks (including 2000 default-output comparisons).");
+        System.out.println("Passed " + checks + " shooter configuration checks (including 2000 legacy-output comparisons).");
     }
 
     private static void defaults() {
-        check("startup and asymmetric defaults disabled", !ShooterSubsystem2026.ENABLE_STARTUP_PROFILE
-                && !ShooterSubsystem2026.ENABLE_ASYMMETRIC_SLEW);
-        check("all default slew values preserve 1.5", ShooterSubsystem2026.SLEW_PER_SECOND==1.5
+        check("tested startup and asymmetric defaults enabled", ShooterSubsystem2026.ENABLE_STARTUP_PROFILE
+                && ShooterSubsystem2026.ENABLE_ASYMMETRIC_SLEW);
+        check("running slew is 1.5 and startup slew is 6", ShooterSubsystem2026.SLEW_PER_SECOND==1.5
                 && ShooterSubsystem2026.RUNNING_SLEW_UP_PER_SECOND==1.5
                 && ShooterSubsystem2026.RUNNING_SLEW_DOWN_PER_SECOND==1.5
-                && ShooterSubsystem2026.STARTUP_SLEW_UP_PER_SECOND==1.5
-                && ShooterSubsystem2026.STARTUP_SLEW_DOWN_PER_SECOND==1.5);
-        check("original compensation defaults", ShooterSubsystem2026.VOLTAGE_COMP_MIN_GAIN==1
-                && ShooterSubsystem2026.VOLTAGE_COMP_MAX_GAIN==1.05);
-        check("new boost behavior disabled", !ShotSequenceController2026.ENABLE_RAMPED_BOOST
-                && !ShotSequenceController2026.ENABLE_BOOST_VOLTAGE_SCALING
-                && ShotSequenceController2026.BOOST_OVERSPEED_TAPER_RPM==0);
-        check("original feed/boost timing", ShotSequenceController2026.FEED_SECONDS==1.2
-                && ShotSequenceController2026.BOOST_DELAY_SECONDS==.18
+                && ShooterSubsystem2026.STARTUP_SLEW_UP_PER_SECOND==6
+                && ShooterSubsystem2026.STARTUP_SLEW_DOWN_PER_SECOND==6);
+        check("tested compensation defaults", ShooterSubsystem2026.VOLTAGE_COMP_MIN_GAIN==.90
+                && ShooterSubsystem2026.VOLTAGE_COMP_MAX_GAIN==1.10);
+        check("candidate boost shaping enabled", ShotSequenceController2026.ENABLE_RAMPED_BOOST
+                && ShotSequenceController2026.ENABLE_BOOST_VOLTAGE_SCALING
+                && ShotSequenceController2026.BOOST_START_POWER==.80
+                && ShotSequenceController2026.BOOST_END_POWER==.90
+                && ShotSequenceController2026.BOOST_NOMINAL_V==12.5
+                && ShotSequenceController2026.BOOST_OVERSPEED_TAPER_RPM==100);
+        check("candidate feed/boost timing", ShotSequenceController2026.FEED_SECONDS==1.0
+                && ShotSequenceController2026.BOOST_DELAY_SECONDS==.04
                 && ShotSequenceController2026.BOOST_DURATION_SECONDS==.5
                 && ShotSequenceController2026.BOOST_MINIMUM_POWER==.75
                 && ShotSequenceController2026.BOOST_BYPASSES_SLEW);
     }
 
     private static void legacyOutputParity() throws Exception {
+        ShooterSubsystem2026.ENABLE_STARTUP_PROFILE=false;
+        ShooterSubsystem2026.ENABLE_ASYMMETRIC_SLEW=false;
+        ShooterSubsystem2026.VOLTAGE_COMP_MIN_GAIN=1;
+        ShooterSubsystem2026.VOLTAGE_COMP_MAX_GAIN=1.05;
         Random r = new Random(20261119);
         double previous = 0;
         shooter.stop();
@@ -151,6 +158,11 @@ public final class ShooterConfiguration2026Test {
     }
 
     private static void sequenceSnapshotAndFlatDefault() throws Exception {
+        // Explicit legacy settings exercise flat-floor support after candidate adoption.
+        ShotSequenceController2026.ENABLE_RAMPED_BOOST=false;
+        ShotSequenceController2026.ENABLE_BOOST_VOLTAGE_SCALING=false;
+        ShotSequenceController2026.BOOST_DELAY_SECONDS=.18;
+        ShotSequenceController2026.BOOST_OVERSPEED_TAPER_RPM=0;
         ShotSequenceController2026 seq=new ShotSequenceController2026();
         seq.reset(); seq.start(); setElapsed(seq,.4); seq.update();
         near("default sequence floor",seq.getRequestedBoostFloor(),.75,1e-12);

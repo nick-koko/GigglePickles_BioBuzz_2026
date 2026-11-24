@@ -87,7 +87,7 @@ public final class ShotExperiment2026Test {
             near("slow both intake",IntakeWithSensorsSubsystem2026.SHOOT_INTAKE_POWER,.35);
             near("slow both transfer",IntakeWithSensorsSubsystem2026.SHOOT_TRANSFER_POWER,.35);
             check("collection RPMs untouched",IntakeWithSensorsSubsystem2026.INTAKE_FORWARD_RPM==4000
-                    && IntakeWithSensorsSubsystem2026.TRANSFER_FORWARD_RPM==700);
+                    && IntakeWithSensorsSubsystem2026.TRANSFER_FORWARD_RPM==1500);
         }
         check("feed settings restored",normalStart.equals(snapshot(NORMAL)));
         ShotExperimentSettings2026.TEST_FEED_SECONDS=1.5;
@@ -264,7 +264,7 @@ public final class ShotExperiment2026Test {
             near("recommended slow feed intake",IntakeWithSensorsSubsystem2026.SHOOT_INTAKE_POWER,.35);
             near("recommended slow feed transfer",IntakeWithSensorsSubsystem2026.SHOOT_TRANSFER_POWER,.35);
             near("common loaded duration override",ShotSequenceController2026.FEED_SECONDS,1.6);
-            near("collection transfer untouched",IntakeWithSensorsSubsystem2026.TRANSFER_FORWARD_RPM,700);
+            near("collection transfer untouched",IntakeWithSensorsSubsystem2026.TRANSFER_FORWARD_RPM,1500);
         }
         defaults();ShotExperimentSettings2026.RECOMMENDED_REPETITIONS=2;ShotExperimentSettings2026.PROFILE_ORDER_OFFSET=1;
         ShotExperimentPlan2026 rotated=recommended();

@@ -47,8 +47,8 @@ public final class Logging2026Test {
         check("boost config aligned", row.get("boost_enabled_for_sequence").equals(false));
         check("cached controller target aligned", row.get("controller_target_rpm")
                 .equals(ShooterSubsystem2026.INSTANCE.getControllerTargetFlywheelRpm()));
-        check("startup flag aligned", row.get("startup_profile_enabled").equals(false));
-        check("asymmetric flag aligned", row.get("asymmetric_slew_enabled").equals(false));
+        check("startup flag aligned", row.get("startup_profile_enabled").equals(ShooterSubsystem2026.ENABLE_STARTUP_PROFILE));
+        check("asymmetric flag aligned", row.get("asymmetric_slew_enabled").equals(ShooterSubsystem2026.ENABLE_ASYMMETRIC_SLEW));
         check("active up limit aligned", row.get("active_slew_up_per_s").equals(ShooterSubsystem2026.INSTANCE.getActiveSlewUpPerSecond()));
         check("active down limit aligned", row.get("active_slew_down_per_s").equals(ShooterSubsystem2026.INSTANCE.getActiveSlewDownPerSecond()));
         check("controller-sample override aligned", row.get("controller_sample_override_floor").equals(ShooterSubsystem2026.INSTANCE.getSampleOverrideFloor()));
@@ -267,8 +267,9 @@ public final class Logging2026Test {
             check("table interpolation settings retained",text.contains("ShotCalibrationTable2026.NEAREST_SAMPLE_COUNT="));
             check("table sample values retained",text.contains("SAMPLES[0]=10.0,20.0,3100.0,1.0,-2.0"));
             check("null table samples tolerated",text.contains("SAMPLES[1]=null"));
-            check("new startup defaults in config snapshot",text.contains("ShooterSubsystem2026.ENABLE_STARTUP_PROFILE=false"));
-            check("new boost defaults in config snapshot",text.contains("ShotSequenceController2026.ENABLE_RAMPED_BOOST=false"));
+            check("startup defaults in config snapshot",text.contains("ShooterSubsystem2026.ENABLE_STARTUP_PROFILE=true"));
+            check("boost defaults in config snapshot",text.contains("ShotSequenceController2026.ENABLE_RAMPED_BOOST=true"));
+            check("middle-high rearm setting retained",text.contains("IntakeWithSensorsSubsystem2026.MIDDLE_HIGH_CLEAR_CONFIRM_SECONDS=0.05"));
             logging.stop();
         } finally { ShotCalibrationTable2026.SAMPLES=original; }
     }

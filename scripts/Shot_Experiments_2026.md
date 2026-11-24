@@ -1,5 +1,24 @@
 # Automated stationary shooting experiments
 
+## Normal opmode defaults adopted after November 23 tests
+
+The shared shooter now enables startup slew of 6/s up and down, running slew
+of 1.5/s, and feedforward voltage compensation from 0.90 to 1.10 at 12.5 V.
+The shared shot sequence uses the 40 ms candidate boost, ramping its power
+floor from 0.80 to 0.90 over 0.50 s, with voltage scaling at 12.5 V and a
+100 RPM overspeed taper. The `CURRENT` experiment profile captures these
+normal settings when the test starts.
+
+The opening-repeat test below retains its explicit original boost profile
+to evaluate early feeding separately. Normal autonomous preloads now request
+3100 RPM with the shared candidate boost. Both close programs retain their
+one-second opening path timeout and track readiness throughout the approach.
+Feed waits for fresh RPM samples within 75 RPM for 150 ms, with a two-second
+maximum from shooter start that proceeds to feed on timeout. The optional
+minimum wait, `SHOOTER_SPINUP_SECONDS`, defaults to zero. Shared readiness
+parameters are in `AutonomousShooterStartup2026`; its exit reason is recorded
+as `SHOOTER_STARTUP_GATE`. Far With Partner also retains its partner delay.
+
 ## Next session
 
 Run **Shot Opening Repeat 2026** for eight cold starts at 3100 RPM.
